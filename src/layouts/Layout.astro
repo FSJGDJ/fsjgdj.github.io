@@ -3,30 +3,137 @@ interface Props {
   title: string;
 }
 const { title } = Astro.props;
+const year = new Date().getFullYear();
 ---
+
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} · 我的博客</title>
   </head>
   <body>
-    <header>
-      <a href="/">🏠 我的博客</a>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/" class="logo">🚀 我的博客</a>
+        <nav>
+          <a href="/">首页</a>
+          <a href="https://github.com/FSJGDJ" target="_blank" rel="noopener"
+            >GitHub</a
+          >
+        </nav>
+      </div>
     </header>
-    <main>
+    <main class="container">
       <slot />
     </main>
-    <style>
-      body {
-        font-family: system-ui, sans-serif;
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 1rem 1.5rem;
-        line-height: 1.7;
-      }
-      a { color: #2563eb; }
-    </style>
+    <footer class="site-footer">
+      <p>
+        © {year} 我的博客 · Powered by <a
+          href="https://astro.build"
+          target="_blank"
+          rel="noopener">Astro</a
+        >
+      </p>
+    </footer>
   </body>
 </html>
+
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #6366f1;
+    --border: #e5e7eb;
+  }
+
+  /* 系统暗色模式自动切换 */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e6e8ee;
+      --muted: #9aa9b2;
+      --accent: #818cf8;
+      --border: #2a2f3a;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+      system-ui,
+      -apple-system,
+      "PingFang SC",
+      "Microsoft YaHei",
+      sans-serif;
+    line-height: 1.8;
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+  }
+
+  .container {
+    width: min(720px, 92%);
+    margin: 0 auto;
+  }
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 0;
+  }
+
+  .logo {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    margin-left: 1.2rem;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+  nav a:hover {
+    color: var(--accent);
+  }
+
+  main {
+    flex: 1;
+    padding: 2.5rem 0 4rem;
+  }
+
+  .site-footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .site-footer a {
+    color: var(--muted);
+  }
+</style>

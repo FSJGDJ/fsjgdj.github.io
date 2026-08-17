@@ -1,6 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { getCollection, render } from "astro:content"; // 👈 这里加了 render
+import { getCollection, render } from "astro:content";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog");
@@ -12,20 +12,73 @@ const post = (await getCollection("blog")).find(
 );
 if (!post) return Astro.redirect("/");
 
-const { Content } = await render(post); // 👈 这里改成了 render(post)
+const { Content } = await render(post);
 ---
 
 <Layout title={post.data.title}>
-  <article>
+  <article class="post">
+    <a href="/" class="back">← 返回首页</a>
     <h1>{post.data.title}</h1>
     <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
-    <Content />
+    <div class="content">
+      <Content />
+    </div>
   </article>
 </Layout>
 
 <style>
-  time {
-    color: #888;
+  .back {
+    color: var(--muted);
+    text-decoration: none;
     font-size: 0.9rem;
+  }
+  .back:hover {
+    color: var(--accent);
+  }
+
+  .post h1 {
+    font-size: 2rem;
+    margin: 1.2rem 0 0.5rem;
+  }
+  .post time {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .content {
+    margin-top: 2rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem 2.2rem;
+  }
+
+  .content :global(h2) {
+    margin-top: 2rem;
+  }
+  .content :global(p) {
+    margin: 1rem 0;
+  }
+  .content :global(a) {
+    color: var(--accent);
+  }
+  .content :global(code) {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    padding: 0.15em 0.4em;
+    border-radius: 6px;
+    font-size: 0.9em;
+  }
+  .content :global(blockquote) {
+    border-left: 4px solid var(--accent);
+    margin: 1.2rem 0;
+    padding: 0.4rem 1.2rem;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-radius: 0 8px 8px 0;
+  }
+  .content :global(img) {
+    max-width: 100%;
+    border-radius: 10px;
   }
 </style>

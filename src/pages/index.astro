@@ -8,13 +8,21 @@ const posts = (await getCollection("blog")).sort(
 ---
 
 <Layout title="首页">
-  <h1>我的博客</h1>
+  <section class="hero">
+    <h1>我的博客</h1>
+    <p class="subtitle">记录学习、生活与思考 ✍️</p>
+  </section>
+
   <ul class="post-list">
     {
       posts.map((post) => (
         <li>
-          <a href={`/blog/${post.id}`}>{post.data.title}</a>
-          <p>{post.data.description}</p>
+          <a class="post-card" href={`/blog/${post.id}`}>
+            <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+            <h2>{post.data.title}</h2>
+            <p>{post.data.description}</p>
+            <span class="read-more">阅读全文 →</span>
+          </a>
         </li>
       ))
     }
@@ -22,15 +30,64 @@ const posts = (await getCollection("blog")).sort(
 </Layout>
 
 <style>
+  .hero {
+    margin-bottom: 2.5rem;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    margin: 0 0 0.4rem;
+    background: linear-gradient(120deg, #6366f1, #ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+  }
+
   .post-list {
     list-style: none;
     padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1.2rem;
   }
-  .post-list li {
-    margin-bottom: 1.5rem;
+
+  .post-card {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.4rem 1.6rem;
+    text-decoration: none;
+    color: var(--text);
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s,
+      border-color 0.2s;
   }
-  .post-list p {
-    margin: 0.25rem 0 0;
-    color: #666;
+  .post-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border-color: var(--accent);
+  }
+
+  .post-card time {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .post-card h2 {
+    margin: 0.4rem 0 0.5rem;
+    font-size: 1.25rem;
+  }
+  .post-card p {
+    margin: 0 0 0.8rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .read-more {
+    color: var(--accent);
+    font-size: 0.9rem;
   }
 </style>
