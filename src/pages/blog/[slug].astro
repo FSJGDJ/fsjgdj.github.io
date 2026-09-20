@@ -61,16 +61,41 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 
     {
       toc.length > 0 && (
-        <details class="toc toc-desktop" open aria-label="文章目录">
-          <summary class="toc-title">目录</summary>
-          <ol>
-            {toc.map((h) => (
-              <li class={`depth-${h.depth}`}>
-                <a href={`#${h.slug}`}>{h.text}</a>
-              </li>
-            ))}
-          </ol>
-        </details>
+        <>
+          <details class="toc toc-desktop" id="toc-panel" open aria-label="文章目录">
+            <summary class="toc-title">目录</summary>
+            <ol>
+              {toc.map((h) => (
+                <li class={`depth-${h.depth}`}>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ol>
+          </details>
+          <button
+            class="toc-toggle"
+            id="toc-toggle"
+            type="button"
+            aria-controls="toc-panel"
+            aria-expanded="true"
+            aria-label="收起目录"
+            title="收起目录"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6"></path>
+            </svg>
+          </button>
+        </>
       )
     }
   </article>
@@ -108,10 +133,33 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     map.forEach((_, target) => observer.observe(target));
   })();
 
-  // 目录随滚动方向收起/展开：向下滚收起，向上滚展开（仅桌面悬浮目录）
+  // 目录收起/展开：点击把手按钮手动切换（记忆到 localStorage），
+  // 未手动收起时，还会随滚动方向自动收起（下滚）/展开（上滚）
   (function () {
     const toc = document.querySelector<HTMLElement>(".toc-desktop");
-    if (!toc) return;
+    const btn = document.querySelector<HTMLButtonElement>(".toc-toggle");
+    if (!toc || !btn) return;
+
+    const KEY = "toc-collapsed";
+    let collapsed = localStorage.getItem(KEY) === "1";
+
+    function apply() {
+      toc!.classList.toggle("toc-collapsed", collapsed);
+      btn!.classList.toggle("is-collapsed", collapsed);
+      const label = collapsed ? "展开目录" : "收起目录";
+      btn!.setAttribute("aria-label", label);
+      btn!.setAttribute("title", label);
+      btn!.setAttribute("aria-expanded", String(!collapsed));
+    }
+    apply();
+
+    btn.addEventListener("click", () => {
+      collapsed = !collapsed;
+      localStorage.setItem(KEY, collapsed ? "1" : "0");
+      toc.classList.remove("toc-hidden");
+      apply();
+    });
+
     let lastY = window.scrollY;
     let ticking = false;
     window.addEventListener(
@@ -122,8 +170,8 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
         requestAnimationFrame(() => {
           const y = window.scrollY;
           const dy = y - lastY;
-          // 累计位移超过 10px 才切换，避免触摸板微抖动；页面顶部始终展开
-          if (Math.abs(dy) > 10) {
+          // 手动收起时不参与；累计位移超过 10px 才切换，页面顶部始终展开
+          if (!collapsed && Math.abs(dy) > 10) {
             toc.classList.toggle("toc-hidden", dy > 0 && y > 200);
             lastY = y;
           }
@@ -207,9 +255,13 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .toc-desktop {
     display: none;
   }
+  /* 目录收起/展开按钮（仅在宽屏存在悬浮目录时显示） */
+  .toc-toggle {
+    display: none;
+  }
 
   /* 宽屏：目录悬浮在正文左侧（参考 springbot 布局），
-     随滚动方向收起/展开由脚本控制 .toc-hidden */
+     点击按钮可收起/展开，作为面板边缘的“把手” */
   @media (min-width: 1480px) {
     .toc-mobile {
       display: none;
@@ -233,13 +285,51 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
         transform 0.3s ease,
         opacity 0.3s ease;
     }
-    .toc-desktop.toc-hidden {
-      transform: translateX(-120%);
+    /* 下滚时自动收起、上滚自动展开，或点击按钮手动收起 */
+    .toc-desktop.toc-hidden,
+    .toc-desktop.toc-collapsed {
+      transform: translateX(-140%);
       opacity: 0;
       pointer-events: none;
     }
     .toc-desktop .toc-title {
       margin-bottom: 0.6rem;
+    }
+
+    /* 收起/展开按钮：面板左侧边缘的圆形把手，位置固定在最左边 */
+    .toc-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: 5.5rem;
+      left: 14px;
+      z-index: 20;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      cursor: pointer;
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      transition:
+        color 0.2s,
+        border-color 0.2s;
+    }
+    .toc-toggle:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .toc-toggle svg {
+      transition: transform 0.3s ease;
+    }
+    /* 收起状态：箭头翻转指向右侧，提示可展开 */
+    .toc-toggle.is-collapsed svg {
+      transform: rotate(180deg);
     }
   }
   .toc ol {
