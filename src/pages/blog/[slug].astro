@@ -107,6 +107,32 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     );
     map.forEach((_, target) => observer.observe(target));
   })();
+
+  // 目录随滚动方向收起/展开：向下滚收起，向上滚展开（仅桌面悬浮目录）
+  (function () {
+    const toc = document.querySelector<HTMLElement>(".toc-desktop");
+    if (!toc) return;
+    let lastY = window.scrollY;
+    let ticking = false;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const y = window.scrollY;
+          const dy = y - lastY;
+          // 累计位移超过 10px 才切换，避免触摸板微抖动；页面顶部始终展开
+          if (Math.abs(dy) > 10) {
+            toc.classList.toggle("toc-hidden", dy > 0 && y > 200);
+            lastY = y;
+          }
+          ticking = false;
+        });
+      },
+      { passive: true },
+    );
+  })();
 </script>
 
 <style>
@@ -182,7 +208,9 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     display: none;
   }
 
-  @media (min-width: 1100px) {
+  /* 宽屏：目录悬浮在正文左侧（参考 springbot 布局），
+     随滚动方向收起/展开由脚本控制 .toc-hidden */
+  @media (min-width: 1480px) {
     .toc-mobile {
       display: none;
     }
@@ -190,7 +218,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       display: block;
       position: fixed;
       top: 5.5rem;
-      left: max(calc(50% + 445px), calc(100vw - 290px));
+      right: min(calc(50% + 445px), calc(100vw - 290px));
       width: 230px;
       max-height: calc(100vh - 8rem);
       overflow-y: auto;
@@ -201,6 +229,14 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid var(--border);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      transition:
+        transform 0.3s ease,
+        opacity 0.3s ease;
+    }
+    .toc-desktop.toc-hidden {
+      transform: translateX(-120%);
+      opacity: 0;
+      pointer-events: none;
     }
     .toc-desktop .toc-title {
       margin-bottom: 0.6rem;
