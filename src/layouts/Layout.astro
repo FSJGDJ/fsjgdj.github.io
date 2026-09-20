@@ -83,6 +83,9 @@ import { siteConfig } from "../config";
     <main class:list={["container", { "container-wide": wide, "container-article": articleWide }]}>
       {panel ? <div class="glass-panel"><slot /></div> : <slot />}
     </main>
+    <!-- glass-panel 的 backdrop-filter 会劫持后代 fixed 定位，
+         需要真正相对视口悬浮的元素（如文章目录）从这里渲染 -->
+    <slot name="toc" />
     <footer class="site-footer">
       <p>
         © {year} 我的博客 · <a href="https://github.com/FSJGDJ" target="_blank"
@@ -100,59 +103,6 @@ import { siteConfig } from "../config";
         >
       </p>
     </footer>
-
-    <!-- 代码块复制按钮：为文章内的 pre 包一层 wrapper 并加复制按钮 -->
-    <script>
-      function setupCodeCopy() {
-        document.querySelectorAll("pre").forEach((pre) => {
-          if (pre.closest(".code-block")) return;
-          const wrap = document.createElement("div");
-          wrap.className = "code-block";
-          pre.replaceWith(wrap);
-          wrap.appendChild(pre);
-
-          const btn = document.createElement("button");
-          btn.className = "code-copy";
-          btn.type = "button";
-          btn.setAttribute("aria-label", "复制代码");
-          btn.title = "复制代码";
-          btn.innerHTML = `
-            <svg class="icon-copy" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            <svg class="icon-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 6 9 17l-5-5"></path>
-            </svg>
-          `;
-          btn.addEventListener("click", async () => {
-            const code = pre.querySelector("code");
-            if (!code) return;
-            try {
-              await navigator.clipboard.writeText(code.innerText);
-            } catch (e) {
-              // 剪贴板 API 不可用时的兜底
-              const ta = document.createElement("textarea");
-              ta.value = code.innerText;
-              document.body.appendChild(ta);
-              ta.select();
-              document.execCommand("copy");
-              ta.remove();
-            }
-            btn.classList.add("copied");
-            setTimeout(() => {
-              btn.classList.remove("copied");
-            }, 1500);
-          });
-          wrap.appendChild(btn);
-        });
-      }
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", setupCodeCopy);
-      } else {
-        setupCodeCopy();
-      }
-    </script>
 
     <!-- 明暗切换：data-theme 优先，其次跟随系统 -->
     <script>
@@ -295,10 +245,12 @@ import { siteConfig } from "../config";
     flex-direction: column;
   }
 
-  /* 标题统一衬线字体，正文保持无衬线，形成中西文混排的杂志感 */
-  h1,
-  h2,
-  h3 {
+  /* 标题统一衬线字体，正文保持无衬线，形成中西文混排的杂志感。
+     必须 :global——markdown 渲染出的标题不带本组件的 scoped 属性，
+     否则会回退成 body 同款无衬线，看上去“小标题像正文一样没有正常显示” */
+  :global(h1),
+  :global(h2),
+  :global(h3) {
     font-family: var(--font-serif);
     font-weight: 600;
     line-height: 1.4;
@@ -416,59 +368,6 @@ import { siteConfig } from "../config";
     color: var(--accent);
   }
 
-  /* 代码块：深色底，明暗模式统一 */
-  .code-block {
-    position: relative;
-    margin: 1.2rem 0;
-  }
-  .code-block pre {
-    margin: 0;
-    background: var(--code-bg);
-    color: var(--code-text);
-    border-radius: 10px;
-    padding: 1rem;
-    overflow-x: auto;
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    line-height: 1.7;
-  }
-  .code-copy {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    background: #161b22;
-    color: #8b949e;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s, color 0.2s;
-  }
-  .code-block:hover .code-copy,
-  .code-copy:focus-visible {
-    opacity: 1;
-  }
-  .code-copy:hover {
-    color: #e6edf3;
-  }
-  .code-copy .icon-check {
-    display: none;
-  }
-  /* 已复制：复制图标换成对勾 */
-  .code-copy.copied {
-    color: #3fb950;
-    border-color: #238636;
-  }
-  .code-copy.copied .icon-copy {
-    display: none;
-  }
-  .code-copy.copied .icon-check {
-    display: block;
-  }
+  /* 代码块：深色底，明暗模式统一（wrapper 样式已随复制按钮移除，
+     pre 样式移到文章页 .content :global(pre.astro-code)） */
 </style>

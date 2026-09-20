@@ -14,23 +14,8 @@ if (!post) return Astro.redirect("/");
 
 const { Content, headings } = await render(post);
 
-// 目录只收 h2 / h3，并组装成嵌套树（h3 挂在最近的 h2 之下）
-type TocItem = {
-  h: (typeof headings)[number];
-  children: (typeof headings)[number][];
-};
-const tocTree: TocItem[] = [];
-for (const h of headings) {
-  if (h.depth === 2) {
-    tocTree.push({ h, children: [] });
-  } else if (h.depth === 3) {
-    if (tocTree.length > 0) {
-      tocTree[tocTree.length - 1].children.push(h);
-    } else {
-      tocTree.push({ h, children: [] });
-    }
-  }
-}
+// 目录只收 h2 / h3（第一版：扁平列表）
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
 // 中文约 400 字/分钟，估算阅读时长
 const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
@@ -56,93 +41,47 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     }
 
     {
-      tocTree.length > 0 && (
+      toc.length > 0 && (
         <details class="toc toc-mobile">
           <summary class="toc-title">目录</summary>
           <ol>
-            {tocTree.map((item) => (
-              <li class="depth-2">
-                <a href={`#${item.h.slug}`}>{item.h.text}</a>
-                {item.children.length > 0 && (
-                  <ol>
-                    {item.children.map((c) => (
-                      <li class="depth-3">
-                        <a href={`#${c.slug}`}>{c.text}</a>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+            {toc.map((h) => (
+              <li class={`depth-${h.depth}`}>
+                <a href={`#${h.slug}`}>{h.text}</a>
               </li>
             ))}
           </ol>
         </details>
       )
     }
-
     <div class="content">
       <Content />
     </div>
-
-    {
-      tocTree.length > 0 && (
-        <>
-          <details class="toc toc-desktop" id="toc-panel" open aria-label="文章目录">
-            <summary class="toc-title">目录</summary>
-            <ol>
-              {tocTree.map((item) => (
-                <li class="depth-2">
-                  <a href={`#${item.h.slug}`}>{item.h.text}</a>
-                  {item.children.length > 0 && (
-                    <ol>
-                      {item.children.map((c) => (
-                        <li class="depth-3">
-                          <a href={`#${c.slug}`}>{c.text}</a>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </details>
-          <button
-            class="toc-toggle"
-            id="toc-toggle"
-            type="button"
-            aria-controls="toc-panel"
-            aria-expanded="true"
-            aria-label="收起目录"
-            title="收起目录"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="m15 18-6-6 6-6"></path>
-            </svg>
-          </button>
-        </>
-      )
-    }
   </article>
+
+  {/* 桌面目录通过命名插槽渲染到 glass-panel 之外，
+      否则面板的 backdrop-filter 会劫持 fixed 定位（相对面板而非视口） */}
+  {toc.length > 0 && (
+    <Fragment slot="toc">
+      <aside class="toc toc-desktop" aria-label="文章目录">
+        <p class="toc-title">目录</p>
+        <ol>
+          {toc.map((h) => (
+            <li class={`depth-${h.depth}`}>
+              <a href={`#${h.slug}`}>{h.text}</a>
+            </li>
+          ))}
+        </ol>
+      </aside>
+    </Fragment>
+  )}
 </Layout>
 
 <script>
-  // 目录：激活项随滚动平滑更新 + 所属 h2 分组平滑展开/收起（CSS 过渡动画）
+  // 目录：滚动时高亮当前章节（第一版形态：扁平列表 + 高亮跟随）
   (function () {
     const links = document.querySelectorAll<HTMLAnchorElement>(".toc a[href^='#']");
     if (links.length === 0) return;
-
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
 
     // 标题元素与锚点（去重，保持文档顺序）
     const pairs: { el: HTMLElement; hash: string }[] = [];
@@ -155,56 +94,12 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       }
     });
 
-    // h3 子条目 -> 所属 h2（展开/收起通过给 h2 li 切换 .toc-open 触发 CSS 过渡）
-    const h3ToH2 = new Map<Element, Element>();
-    document
-      .querySelectorAll<HTMLLIElement>(".toc li.depth-2")
-      .forEach((h2li) => {
-        h2li
-          .querySelectorAll(":scope > ol > li.depth-3")
-          .forEach((s) => h3ToH2.set(s, h2li));
-      });
-
-    function updateGroups(activeLi: HTMLLIElement | null) {
-      // 激活项若为 h3，展开它所属的 h2 分组
-      let target: Element | null = activeLi;
-      if (target?.classList.contains("depth-3")) {
-        target = h3ToH2.get(target) ?? null;
-      }
-      document
-        .querySelectorAll<HTMLLIElement>(".toc li.depth-2")
-        .forEach((h2li) => {
-          h2li.classList.toggle("toc-open", h2li === target);
-        });
-    }
-
     let activeHash: string | null = null;
     function setActive(hash: string | null) {
       if (activeHash === hash) return;
       activeHash = hash;
       // 移动/桌面两份目录里相同锚点的链接同步高亮
       links.forEach((l) => l.classList.toggle("active", !!hash && l.hash === hash));
-      const link = hash
-        ? (Array.from(links).find((l) => l.hash === hash) ?? null)
-        : null;
-      updateGroups(link?.closest("li") ?? null);
-
-      // 桌面目录面板：激活项滚出可视区时，平滑滚动面板使其回到视野
-      if (!hash) return;
-      const deskLink = document.querySelector<HTMLAnchorElement>(
-        `.toc-desktop a[href="${hash}"]`,
-      );
-      const panel = deskLink?.closest(".toc-desktop");
-      if (deskLink && panel) {
-        const r = deskLink.getBoundingClientRect();
-        const pr = panel.getBoundingClientRect();
-        if (r.top < pr.top + 8 || r.bottom > pr.bottom - 8) {
-          deskLink.scrollIntoView({
-            block: "nearest",
-            behavior: reduceMotion ? "auto" : "smooth",
-          });
-        }
-      }
     }
 
     // 滚动驱动的激活计算：取“顶部参考线”之上的最后一个标题，
@@ -240,32 +135,6 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       { passive: true },
     );
     computeActive();
-  })();
-
-  // 目录面板收起/展开：点击把手按钮手动切换（记忆到 localStorage）
-  (function () {
-    const toc = document.querySelector<HTMLElement>(".toc-desktop");
-    const btn = document.querySelector<HTMLButtonElement>(".toc-toggle");
-    if (!toc || !btn) return;
-
-    const KEY = "toc-collapsed";
-    let collapsed = localStorage.getItem(KEY) === "1";
-
-    function apply() {
-      toc!.classList.toggle("toc-collapsed", collapsed);
-      btn!.classList.toggle("is-collapsed", collapsed);
-      const label = collapsed ? "展开目录" : "收起目录";
-      btn!.setAttribute("aria-label", label);
-      btn!.setAttribute("title", label);
-      btn!.setAttribute("aria-expanded", String(!collapsed));
-    }
-    apply();
-
-    btn.addEventListener("click", () => {
-      collapsed = !collapsed;
-      localStorage.setItem(KEY, collapsed ? "1" : "0");
-      apply();
-    });
   })();
 </script>
 
@@ -312,13 +181,15 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .toc-mobile {
     margin: 1.5rem 0 0;
   }
-  /* 目录标题（移动/桌面共用）：点击可收起或展开 */
+  /* 目录标题：移动端 summary 可点击收起展开；桌面端为静态标题 */
   .toc-title {
     margin: 0 0 0.5rem;
     font-size: 0.8rem;
     color: var(--muted);
     font-weight: 600;
     letter-spacing: 0.05em;
+  }
+  .toc-mobile .toc-title {
     cursor: pointer;
     user-select: none;
     list-style: none;
@@ -326,37 +197,39 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     align-items: center;
     gap: 0.35rem;
   }
-  .toc-title::-webkit-details-marker {
+  .toc-mobile .toc-title::-webkit-details-marker {
     display: none;
   }
-  /* 收起/展开箭头 */
-  .toc-title::after {
+  /* 收起/展开箭头（仅移动端折叠目录） */
+  .toc-mobile .toc-title::after {
     content: "▸";
     font-size: 0.7rem;
     transition: transform 0.2s;
   }
-  details[open] > .toc-title::after {
+  .toc-mobile details[open] > .toc-title::after,
+  .toc-mobile[open] > .toc-title::after {
     transform: rotate(90deg);
   }
   .toc-desktop {
     display: none;
   }
-  /* 目录收起/展开按钮（仅在宽屏存在悬浮目录时显示） */
-  .toc-toggle {
-    display: none;
-  }
 
-  /* 宽屏：目录悬浮在正文左侧（参考 springbot 布局），
-     点击按钮可收起/展开，作为面板边缘的“把手” */
-  @media (min-width: 1480px) {
+  /* 宽屏：目录悬浮在正文左侧（第一版形态），扁平列表始终完整可见 */
+  @media (min-width: 1400px) {
     .toc-mobile {
       display: none;
+    }
+    /* 正文整体右移，与左侧目录之间留出充足留白（参考 springbot 布局）。
+       注意：Layout 的 .container 规则带 scoped 属性选择器（优先级 0,2,0），
+       这里必须用更高优先级的选择器才能盖过它的 margin: 0 auto */
+    :global(main.container.container-article) {
+      margin-left: max(300px, calc(50% - 280px));
     }
     .toc-desktop {
       display: block;
       position: fixed;
       top: 5.5rem;
-      right: min(calc(50% + 445px), calc(100vw - 290px));
+      left: min(calc(50% - 675px), calc(100vw - 250px));
       width: 230px;
       max-height: calc(100vh - 8rem);
       overflow-y: auto;
@@ -367,54 +240,9 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid var(--border);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-      transition:
-        transform 0.3s ease,
-        opacity 0.3s ease;
-    }
-    /* 点击按钮手动收起（滚动不再自动收起面板） */
-    .toc-desktop.toc-collapsed {
-      transform: translateX(-140%);
-      opacity: 0;
-      pointer-events: none;
     }
     .toc-desktop .toc-title {
       margin-bottom: 0.6rem;
-    }
-
-    /* 收起/展开按钮：面板左侧边缘的圆形把手，位置固定在最左边 */
-    .toc-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: fixed;
-      top: 5.5rem;
-      left: 14px;
-      z-index: 20;
-      width: 34px;
-      height: 34px;
-      padding: 0;
-      cursor: pointer;
-      border-radius: 999px;
-      color: var(--muted);
-      background: var(--card);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--border);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-      transition:
-        color 0.2s,
-        border-color 0.2s;
-    }
-    .toc-toggle:hover {
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-    .toc-toggle svg {
-      transition: transform 0.3s ease;
-    }
-    /* 收起状态：箭头翻转指向右侧，提示可展开 */
-    .toc-toggle.is-collapsed svg {
-      transform: rotate(180deg);
     }
   }
   .toc ol {
@@ -422,41 +250,6 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     margin: 0;
     padding: 0;
     border-left: 2px solid var(--border);
-    counter-reset: toc-n;
-  }
-  /* h3 嵌套列表：缩进 + 独立引导线；默认收起，所属章节激活时平滑展开 */
-  .toc ol ol {
-    margin: 0 0 0 0.55rem;
-    overflow: hidden;
-    max-height: 0;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      max-height 0.3s ease,
-      opacity 0.25s ease,
-      margin 0.3s ease,
-      visibility 0s 0.3s;
-  }
-  .toc li.depth-2.toc-open > ol {
-    max-height: 26em;
-    margin: 0.1rem 0 0.2rem 0.55rem;
-    opacity: 1;
-    visibility: visible;
-    transition:
-      max-height 0.3s ease,
-      opacity 0.25s ease,
-      margin 0.3s ease,
-      visibility 0s;
-  }
-  /* 层级编号：h2 显示 1. 2.，h3 显示 1.1. 1.2.（参考 ttdr.top 目录） */
-  .toc li > a::before {
-    counter-increment: toc-n;
-    content: counters(toc-n, ".") ".";
-    margin-right: 0.35rem;
-    font-size: 0.72em;
-    font-family: var(--font-mono);
-    color: var(--muted);
-    opacity: 0.8;
   }
   .toc li {
     margin: 0;
@@ -492,11 +285,6 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   /* 减弱动态效果：目录的所有过渡直接跳过 */
   @media (prefers-reduced-motion: reduce) {
     .toc a,
-    .toc ol ol,
-    .toc li.depth-2.toc-open > ol,
-    .toc-desktop,
-    .toc-toggle,
-    .toc-toggle svg,
     .toc-title::after {
       transition: none;
     }
@@ -535,6 +323,18 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     border-radius: 6px;
     font-size: 0.9em;
     font-family: var(--font-mono);
+  }
+  /* 代码块：深色底（!important 压过 shiki 内联背景色） */
+  .content :global(pre.astro-code) {
+    margin: 1.2rem 0;
+    background: var(--code-bg) !important;
+    color: var(--code-text) !important;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.7;
   }
   /* 代码块内的 code 不用行内样式 */
   .content :global(pre code) {
