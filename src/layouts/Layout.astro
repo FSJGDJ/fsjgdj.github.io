@@ -114,7 +114,17 @@ import { siteConfig } from "../config";
           const btn = document.createElement("button");
           btn.className = "code-copy";
           btn.type = "button";
-          btn.textContent = "复制";
+          btn.setAttribute("aria-label", "复制代码");
+          btn.title = "复制代码";
+          btn.innerHTML = `
+            <svg class="icon-copy" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <svg class="icon-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"></path>
+            </svg>
+          `;
           btn.addEventListener("click", async () => {
             const code = pre.querySelector("code");
             if (!code) return;
@@ -129,10 +139,8 @@ import { siteConfig } from "../config";
               document.execCommand("copy");
               ta.remove();
             }
-            btn.textContent = "已复制 ✓";
             btn.classList.add("copied");
             setTimeout(() => {
-              btn.textContent = "复制";
               btn.classList.remove("copied");
             }, 1500);
           });
@@ -428,13 +436,16 @@ import { siteConfig } from "../config";
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
-    padding: 0.2rem 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
     border: 1px solid #30363d;
     border-radius: 6px;
     background: #161b22;
     color: #8b949e;
-    font-size: 0.75rem;
-    font-family: inherit;
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.2s, color 0.2s;
@@ -446,8 +457,18 @@ import { siteConfig } from "../config";
   .code-copy:hover {
     color: #e6edf3;
   }
+  .code-copy .icon-check {
+    display: none;
+  }
+  /* 已复制：复制图标换成对勾 */
   .code-copy.copied {
     color: #3fb950;
     border-color: #238636;
+  }
+  .code-copy.copied .icon-copy {
+    display: none;
+  }
+  .code-copy.copied .icon-check {
+    display: block;
   }
 </style>

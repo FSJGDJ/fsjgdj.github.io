@@ -14,8 +14,23 @@ if (!post) return Astro.redirect("/");
 
 const { Content, headings } = await render(post);
 
-// 目录只收 h2 / h3
-const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+// 目录只收 h2 / h3，并组装成嵌套树（h3 挂在最近的 h2 之下）
+type TocItem = {
+  h: (typeof headings)[number];
+  children: (typeof headings)[number][];
+};
+const tocTree: TocItem[] = [];
+for (const h of headings) {
+  if (h.depth === 2) {
+    tocTree.push({ h, children: [] });
+  } else if (h.depth === 3) {
+    if (tocTree.length > 0) {
+      tocTree[tocTree.length - 1].children.push(h);
+    } else {
+      tocTree.push({ h, children: [] });
+    }
+  }
+}
 
 // 中文约 400 字/分钟，估算阅读时长
 const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
@@ -41,13 +56,22 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     }
 
     {
-      toc.length > 0 && (
+      tocTree.length > 0 && (
         <details class="toc toc-mobile">
           <summary class="toc-title">目录</summary>
           <ol>
-            {toc.map((h) => (
-              <li class={`depth-${h.depth}`}>
-                <a href={`#${h.slug}`}>{h.text}</a>
+            {tocTree.map((item) => (
+              <li class="depth-2">
+                <a href={`#${item.h.slug}`}>{item.h.text}</a>
+                {item.children.length > 0 && (
+                  <ol>
+                    {item.children.map((c) => (
+                      <li class="depth-3">
+                        <a href={`#${c.slug}`}>{c.text}</a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </li>
             ))}
           </ol>
@@ -60,14 +84,23 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     </div>
 
     {
-      toc.length > 0 && (
+      tocTree.length > 0 && (
         <>
           <details class="toc toc-desktop" id="toc-panel" open aria-label="文章目录">
             <summary class="toc-title">目录</summary>
             <ol>
-              {toc.map((h) => (
-                <li class={`depth-${h.depth}`}>
-                  <a href={`#${h.slug}`}>{h.text}</a>
+              {tocTree.map((item) => (
+                <li class="depth-2">
+                  <a href={`#${item.h.slug}`}>{item.h.text}</a>
+                  {item.children.length > 0 && (
+                    <ol>
+                      {item.children.map((c) => (
+                        <li class="depth-3">
+                          <a href={`#${c.slug}`}>{c.text}</a>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </li>
               ))}
             </ol>
@@ -102,7 +135,8 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 </Layout>
 
 <script>
-  // 目录当前章节高亮：滚动时给可视区域内的标题对应的链接加 active
+  // 目录当前章节高亮 + 子条目随滚动收起/展开：
+  // h3 默认收起，滚动到哪个 h2 章节就展开哪个章节的 h3 子条目
   (function () {
     const links = document.querySelectorAll<HTMLAnchorElement>(".toc a[href^='#']");
     if (links.length === 0) return;
@@ -112,12 +146,39 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       if (target) map.set(target, link);
     });
 
-    let activeLink: HTMLAnchorElement | null = null;
+    // 按 h2 分组收集 h3 子条目（目录为嵌套列表渲染）
+    const groups = new Map<HTMLLIElement, HTMLLIElement[]>();
+    const h3ToH2 = new Map<HTMLLIElement, HTMLLIElement>();
+    document
+      .querySelectorAll<HTMLLIElement>(".toc li.depth-2")
+      .forEach((h2li) => {
+        const subs = Array.from(
+          h2li.querySelectorAll<HTMLLIElement>(":scope > ol > li.depth-3"),
+        );
+        groups.set(h2li, subs);
+        subs.forEach((s) => h3ToH2.set(s, h2li));
+      });
+
+    function updateGroups(activeLi: HTMLLIElement | null) {
+      // 激活项若为 h3，展开它所属的 h2 分组
+      let target: HTMLLIElement | null = activeLi;
+      if (target?.classList.contains("depth-3")) {
+        target = h3ToH2.get(target) ?? null;
+      }
+      groups.forEach((subs, h2li) => {
+        const open = h2li === target;
+        subs.forEach((sub) => sub.classList.toggle("toc-show", open));
+      });
+    }
+
+    let activeHash: string | null = null;
     function setActive(link: HTMLAnchorElement | null) {
-      if (activeLink === link) return;
-      activeLink?.classList.remove("active");
-      activeLink = link;
-      link?.classList.add("active");
+      const hash = link?.hash ?? null;
+      if (activeHash === hash) return;
+      activeHash = hash;
+      // 移动/桌面两份目录里相同锚点的链接同步高亮
+      links.forEach((l) => l.classList.toggle("active", l.hash === hash && !!hash));
+      updateGroups(link?.closest("li") ?? null);
     }
 
     const observer = new IntersectionObserver(
@@ -133,8 +194,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     map.forEach((_, target) => observer.observe(target));
   })();
 
-  // 目录收起/展开：点击把手按钮手动切换（记忆到 localStorage），
-  // 未手动收起时，还会随滚动方向自动收起（下滚）/展开（上滚）
+  // 目录面板收起/展开：点击把手按钮手动切换（记忆到 localStorage）
   (function () {
     const toc = document.querySelector<HTMLElement>(".toc-desktop");
     const btn = document.querySelector<HTMLButtonElement>(".toc-toggle");
@@ -156,30 +216,8 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     btn.addEventListener("click", () => {
       collapsed = !collapsed;
       localStorage.setItem(KEY, collapsed ? "1" : "0");
-      toc.classList.remove("toc-hidden");
       apply();
     });
-
-    let lastY = window.scrollY;
-    let ticking = false;
-    window.addEventListener(
-      "scroll",
-      () => {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-          const y = window.scrollY;
-          const dy = y - lastY;
-          // 手动收起时不参与；累计位移超过 10px 才切换，页面顶部始终展开
-          if (!collapsed && Math.abs(dy) > 10) {
-            toc.classList.toggle("toc-hidden", dy > 0 && y > 200);
-            lastY = y;
-          }
-          ticking = false;
-        });
-      },
-      { passive: true },
-    );
   })();
 </script>
 
@@ -285,8 +323,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
         transform 0.3s ease,
         opacity 0.3s ease;
     }
-    /* 下滚时自动收起、上滚自动展开，或点击按钮手动收起 */
-    .toc-desktop.toc-hidden,
+    /* 点击按钮手动收起（滚动不再自动收起面板） */
     .toc-desktop.toc-collapsed {
       transform: translateX(-140%);
       opacity: 0;
@@ -337,6 +374,21 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     margin: 0;
     padding: 0;
     border-left: 2px solid var(--border);
+    counter-reset: toc-n;
+  }
+  /* h3 嵌套列表：缩进 + 独立引导线 */
+  .toc ol ol {
+    margin: 0.1rem 0 0.2rem 0.55rem;
+  }
+  /* 层级编号：h2 显示 1. 2.，h3 显示 1.1. 1.2.（参考 ttdr.top 目录） */
+  .toc li > a::before {
+    counter-increment: toc-n;
+    content: counters(toc-n, ".") ".";
+    margin-right: 0.35rem;
+    font-size: 0.72em;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    opacity: 0.8;
   }
   .toc li {
     margin: 0;
@@ -355,6 +407,13 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .toc li.depth-3 a {
     padding-left: 1.6rem;
     font-size: 0.75rem;
+  }
+  /* h3 子条目默认收起，所在章节激活时由脚本加 .toc-show 展开 */
+  .toc li.depth-3 {
+    display: none;
+  }
+  .toc li.depth-3.toc-show {
+    display: block;
   }
   .toc a:hover {
     color: var(--accent);
