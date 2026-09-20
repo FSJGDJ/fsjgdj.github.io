@@ -135,63 +135,111 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 </Layout>
 
 <script>
-  // 目录当前章节高亮 + 子条目随滚动收起/展开：
-  // h3 默认收起，滚动到哪个 h2 章节就展开哪个章节的 h3 子条目
+  // 目录：激活项随滚动平滑更新 + 所属 h2 分组平滑展开/收起（CSS 过渡动画）
   (function () {
     const links = document.querySelectorAll<HTMLAnchorElement>(".toc a[href^='#']");
     if (links.length === 0) return;
-    const map = new Map<Element, HTMLAnchorElement>();
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    // 标题元素与锚点（去重，保持文档顺序）
+    const pairs: { el: HTMLElement; hash: string }[] = [];
+    const seen = new Set<string>();
     links.forEach((link) => {
-      const target = document.getElementById(decodeURIComponent(link.hash.slice(1)));
-      if (target) map.set(target, link);
+      const el = document.getElementById(decodeURIComponent(link.hash.slice(1)));
+      if (el && !seen.has(link.hash)) {
+        seen.add(link.hash);
+        pairs.push({ el, hash: link.hash });
+      }
     });
 
-    // 按 h2 分组收集 h3 子条目（目录为嵌套列表渲染）
-    const groups = new Map<HTMLLIElement, HTMLLIElement[]>();
-    const h3ToH2 = new Map<HTMLLIElement, HTMLLIElement>();
+    // h3 子条目 -> 所属 h2（展开/收起通过给 h2 li 切换 .toc-open 触发 CSS 过渡）
+    const h3ToH2 = new Map<Element, Element>();
     document
       .querySelectorAll<HTMLLIElement>(".toc li.depth-2")
       .forEach((h2li) => {
-        const subs = Array.from(
-          h2li.querySelectorAll<HTMLLIElement>(":scope > ol > li.depth-3"),
-        );
-        groups.set(h2li, subs);
-        subs.forEach((s) => h3ToH2.set(s, h2li));
+        h2li
+          .querySelectorAll(":scope > ol > li.depth-3")
+          .forEach((s) => h3ToH2.set(s, h2li));
       });
 
     function updateGroups(activeLi: HTMLLIElement | null) {
       // 激活项若为 h3，展开它所属的 h2 分组
-      let target: HTMLLIElement | null = activeLi;
+      let target: Element | null = activeLi;
       if (target?.classList.contains("depth-3")) {
         target = h3ToH2.get(target) ?? null;
       }
-      groups.forEach((subs, h2li) => {
-        const open = h2li === target;
-        subs.forEach((sub) => sub.classList.toggle("toc-show", open));
-      });
+      document
+        .querySelectorAll<HTMLLIElement>(".toc li.depth-2")
+        .forEach((h2li) => {
+          h2li.classList.toggle("toc-open", h2li === target);
+        });
     }
 
     let activeHash: string | null = null;
-    function setActive(link: HTMLAnchorElement | null) {
-      const hash = link?.hash ?? null;
+    function setActive(hash: string | null) {
       if (activeHash === hash) return;
       activeHash = hash;
       // 移动/桌面两份目录里相同锚点的链接同步高亮
-      links.forEach((l) => l.classList.toggle("active", l.hash === hash && !!hash));
+      links.forEach((l) => l.classList.toggle("active", !!hash && l.hash === hash));
+      const link = hash
+        ? (Array.from(links).find((l) => l.hash === hash) ?? null)
+        : null;
       updateGroups(link?.closest("li") ?? null);
+
+      // 桌面目录面板：激活项滚出可视区时，平滑滚动面板使其回到视野
+      if (!hash) return;
+      const deskLink = document.querySelector<HTMLAnchorElement>(
+        `.toc-desktop a[href="${hash}"]`,
+      );
+      const panel = deskLink?.closest(".toc-desktop");
+      if (deskLink && panel) {
+        const r = deskLink.getBoundingClientRect();
+        const pr = panel.getBoundingClientRect();
+        if (r.top < pr.top + 8 || r.bottom > pr.bottom - 8) {
+          deskLink.scrollIntoView({
+            block: "nearest",
+            behavior: reduceMotion ? "auto" : "smooth",
+          });
+        }
+      }
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActive(map.get(entry.target) ?? null);
-          }
-        }
+    // 滚动驱动的激活计算：取“顶部参考线”之上的最后一个标题，
+    // 相比 IntersectionObserver 不会出现章节间隙期间高亮滞留或跳变
+    const HEADER_OFFSET = 96; // sticky 头部高度 + 余量
+    let ticking = false;
+    function computeActive() {
+      let current: string | null = null;
+      for (const { el, hash } of pairs) {
+        if (el.getBoundingClientRect().top <= HEADER_OFFSET) current = hash;
+        else break;
+      }
+      // 接近页面底部时锁定最后一个标题
+      const doc = document.documentElement;
+      if (
+        doc.scrollHeight - window.scrollY - window.innerHeight < 80 &&
+        pairs.length > 0
+      ) {
+        current = pairs[pairs.length - 1].hash;
+      }
+      setActive(current);
+    }
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          computeActive();
+          ticking = false;
+        });
       },
-      { rootMargin: "-20% 0px -70% 0px" },
+      { passive: true },
     );
-    map.forEach((_, target) => observer.observe(target));
+    computeActive();
   })();
 
   // 目录面板收起/展开：点击把手按钮手动切换（记忆到 localStorage）
@@ -376,9 +424,29 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     border-left: 2px solid var(--border);
     counter-reset: toc-n;
   }
-  /* h3 嵌套列表：缩进 + 独立引导线 */
+  /* h3 嵌套列表：缩进 + 独立引导线；默认收起，所属章节激活时平滑展开 */
   .toc ol ol {
+    margin: 0 0 0 0.55rem;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      max-height 0.3s ease,
+      opacity 0.25s ease,
+      margin 0.3s ease,
+      visibility 0s 0.3s;
+  }
+  .toc li.depth-2.toc-open > ol {
+    max-height: 26em;
     margin: 0.1rem 0 0.2rem 0.55rem;
+    opacity: 1;
+    visibility: visible;
+    transition:
+      max-height 0.3s ease,
+      opacity 0.25s ease,
+      margin 0.3s ease,
+      visibility 0s;
   }
   /* 层级编号：h2 显示 1. 2.，h3 显示 1.1. 1.2.（参考 ttdr.top 目录） */
   .toc li > a::before {
@@ -395,25 +463,22 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   }
   .toc a {
     display: block;
-    padding: 0.2rem 0 0.2rem 0.8rem;
+    padding: 0.2rem 0.4rem 0.2rem 0.8rem;
     font-size: 0.8rem;
     line-height: 1.6;
     color: var(--muted);
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
     margin-left: -2px;
-    transition: color 0.2s, border-color 0.2s;
+    transition:
+      color 0.2s ease,
+      border-color 0.2s ease,
+      background-color 0.2s ease;
   }
   .toc li.depth-3 a {
     padding-left: 1.6rem;
     font-size: 0.75rem;
-  }
-  /* h3 子条目默认收起，所在章节激活时由脚本加 .toc-show 展开 */
-  .toc li.depth-3 {
-    display: none;
-  }
-  .toc li.depth-3.toc-show {
-    display: block;
   }
   .toc a:hover {
     color: var(--accent);
@@ -421,6 +486,20 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .toc a.active {
     color: var(--accent);
     border-left-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  /* 减弱动态效果：目录的所有过渡直接跳过 */
+  @media (prefers-reduced-motion: reduce) {
+    .toc a,
+    .toc ol ol,
+    .toc li.depth-2.toc-open > ol,
+    .toc-desktop,
+    .toc-toggle,
+    .toc-toggle svg,
+    .toc-title::after {
+      transition: none;
+    }
   }
 
   /* 正文去卡片容器，直接排版在背景上，长文像一页纸 */
