@@ -3,10 +3,12 @@ interface Props {
   title: string;
   /** 首页等页面可加宽显示区域 */
   wide?: boolean;
+  /** 文章页：更宽的正文区 */
+  articleWide?: boolean;
   /** 是否用整张毛玻璃面板包裹内容（首页用独立卡片时关掉） */
   panel?: boolean;
 }
-const { title, wide, panel = true } = Astro.props;
+const { title, wide, articleWide, panel = true } = Astro.props;
 const year = new Date().getFullYear();
 import { siteConfig } from "../config";
 ---
@@ -78,7 +80,7 @@ import { siteConfig } from "../config";
         </nav>
       </div>
     </header>
-    <main class:list={["container", { "container-wide": wide }]}>
+    <main class:list={["container", { "container-wide": wide, "container-article": articleWide }]}>
       {panel ? <div class="glass-panel"><slot /></div> : <slot />}
     </main>
     <footer class="site-footer">
@@ -301,6 +303,10 @@ import { siteConfig } from "../config";
   /* 首页等需要加宽的页面 */
   .container-wide {
     width: min(780px, 94%);
+  }
+  /* 文章页：更宽的正文区 */
+  .container-article {
+    width: min(860px, 94%);
   }
 
   .site-header {

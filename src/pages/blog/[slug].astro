@@ -21,7 +21,7 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 ---
 
-<Layout title={post.data.title}>
+<Layout title={post.data.title} articleWide>
   <article class="post">
     <a href="/" class="back">← 返回首页</a>
     <h1>{post.data.title}</h1>
@@ -43,7 +43,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
     {
       toc.length > 0 && (
         <details class="toc toc-mobile">
-          <summary>目录</summary>
+          <summary class="toc-title">目录</summary>
           <ol>
             {toc.map((h) => (
               <li class={`depth-${h.depth}`}>
@@ -61,8 +61,8 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 
     {
       toc.length > 0 && (
-        <aside class="toc toc-desktop" aria-label="文章目录">
-          <p class="toc-title">目录</p>
+        <details class="toc toc-desktop" open aria-label="文章目录">
+          <summary class="toc-title">目录</summary>
           <ol>
             {toc.map((h) => (
               <li class={`depth-${h.depth}`}>
@@ -70,7 +70,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
               </li>
             ))}
           </ol>
-        </aside>
+        </details>
       )
     }
   </article>
@@ -152,11 +152,31 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .toc-mobile {
     margin: 1.5rem 0 0;
   }
-  .toc-mobile summary {
-    cursor: pointer;
+  /* 目录标题（移动/桌面共用）：点击可收起或展开 */
+  .toc-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
     user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .toc-title::-webkit-details-marker {
+    display: none;
+  }
+  /* 收起/展开箭头 */
+  .toc-title::after {
+    content: "▸";
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+  }
+  details[open] > .toc-title::after {
+    transform: rotate(90deg);
   }
   .toc-desktop {
     display: none;
@@ -170,7 +190,7 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       display: block;
       position: fixed;
       top: 5.5rem;
-      left: max(calc(50% + 360px), calc(100vw - 300px));
+      left: max(calc(50% + 445px), calc(100vw - 290px));
       width: 230px;
       max-height: calc(100vh - 8rem);
       overflow-y: auto;
@@ -182,14 +202,9 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       border: 1px solid var(--border);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     }
-  }
-
-  .toc-title {
-    margin: 0 0 0.5rem;
-    font-size: 0.8rem;
-    color: var(--muted);
-    font-weight: 600;
-    letter-spacing: 0.05em;
+    .toc-desktop .toc-title {
+      margin-bottom: 0.6rem;
+    }
   }
   .toc ol {
     list-style: none;
