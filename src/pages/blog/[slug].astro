@@ -12,19 +12,102 @@ const post = (await getCollection("blog")).find(
 );
 if (!post) return Astro.redirect("/");
 
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+
+// 目录只收 h2 / h3
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+
+// 中文约 400 字/分钟，估算阅读时长
+const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
 ---
 
 <Layout title={post.data.title}>
   <article class="post">
     <a href="/" class="back">← 返回首页</a>
     <h1>{post.data.title}</h1>
-    <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+    <div class="post-meta">
+      <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+      <span class="dot">·</span>
+      <span>约 {readingTime} 分钟</span>
+    </div>
+    {
+      post.data.tags.length > 0 && (
+        <div class="tags">
+          {post.data.tags.map((tag) => (
+            <span class="tag">{tag}</span>
+          ))}
+        </div>
+      )
+    }
+
+    {
+      toc.length > 0 && (
+        <details class="toc toc-mobile">
+          <summary>目录</summary>
+          <ol>
+            {toc.map((h) => (
+              <li class={`depth-${h.depth}`}>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )
+    }
+
     <div class="content">
       <Content />
     </div>
+
+    {
+      toc.length > 0 && (
+        <aside class="toc toc-desktop" aria-label="文章目录">
+          <p class="toc-title">目录</p>
+          <ol>
+            {toc.map((h) => (
+              <li class={`depth-${h.depth}`}>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      )
+    }
   </article>
 </Layout>
+
+<script>
+  // 目录当前章节高亮：滚动时给可视区域内的标题对应的链接加 active
+  (function () {
+    const links = document.querySelectorAll<HTMLAnchorElement>(".toc a[href^='#']");
+    if (links.length === 0) return;
+    const map = new Map<Element, HTMLAnchorElement>();
+    links.forEach((link) => {
+      const target = document.getElementById(decodeURIComponent(link.hash.slice(1)));
+      if (target) map.set(target, link);
+    });
+
+    let activeLink: HTMLAnchorElement | null = null;
+    function setActive(link: HTMLAnchorElement | null) {
+      if (activeLink === link) return;
+      activeLink?.classList.remove("active");
+      activeLink = link;
+      link?.classList.add("active");
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActive(map.get(entry.target) ?? null);
+          }
+        }
+      },
+      { rootMargin: "-20% 0px -70% 0px" },
+    );
+    map.forEach((_, target) => observer.observe(target));
+  })();
+</script>
 
 <style>
   .back {
@@ -40,21 +123,125 @@ const { Content } = await render(post);
     font-size: 2rem;
     margin: 1.2rem 0 0.5rem;
   }
-  .post time {
+
+  .post-meta {
     color: var(--muted);
     font-size: 0.9rem;
+    font-family: var(--font-mono);
+  }
+  .post-meta .dot {
+    margin: 0 0.4rem;
   }
 
+  .tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.8rem;
+  }
+  .tag {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  /* 目录：窄屏折叠（默认），宽屏右侧 sticky */
+  .toc-mobile {
+    margin: 1.5rem 0 0;
+  }
+  .toc-mobile summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.9rem;
+    user-select: none;
+  }
+  .toc-desktop {
+    display: none;
+  }
+
+  @media (min-width: 1100px) {
+    .toc-mobile {
+      display: none;
+    }
+    .toc-desktop {
+      display: block;
+      position: fixed;
+      top: 5.5rem;
+      left: max(calc(50% + 360px), calc(100vw - 300px));
+      width: 230px;
+      max-height: calc(100vh - 8rem);
+      overflow-y: auto;
+      padding: 0.9rem 1rem;
+      border-radius: 12px;
+      background: var(--card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  .toc-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 2px solid var(--border);
+  }
+  .toc li {
+    margin: 0;
+  }
+  .toc a {
+    display: block;
+    padding: 0.2rem 0 0.2rem 0.8rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    margin-left: -2px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .toc li.depth-3 a {
+    padding-left: 1.6rem;
+    font-size: 0.75rem;
+  }
+  .toc a:hover {
+    color: var(--accent);
+  }
+  .toc a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  /* 正文去卡片容器，直接排版在背景上，长文像一页纸 */
   .content {
     margin-top: 2rem;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 2rem 2.2rem;
+    font-size: 1rem;
+    line-height: 1.75;
   }
 
   .content :global(h2) {
     margin-top: 2rem;
+    font-size: 1.5rem;
+  }
+  .content :global(h3) {
+    margin-top: 1.5rem;
+    font-size: 1.25rem;
+  }
+  .content :global(h2),
+  .content :global(h3) {
+    /* 锚点偏移，避免被 sticky 头部遮挡 */
+    scroll-margin-top: 4.5rem;
   }
   .content :global(p) {
     margin: 1rem 0;
@@ -68,6 +255,15 @@ const { Content } = await render(post);
     padding: 0.15em 0.4em;
     border-radius: 6px;
     font-size: 0.9em;
+    font-family: var(--font-mono);
+  }
+  /* 代码块内的 code 不用行内样式 */
+  .content :global(pre code) {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
   }
   .content :global(blockquote) {
     border-left: 4px solid var(--accent);
@@ -80,5 +276,20 @@ const { Content } = await render(post);
   .content :global(img) {
     max-width: 100%;
     border-radius: 10px;
+  }
+  .content :global(table) {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  .content :global(th),
+  .content :global(td) {
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.7rem;
+    text-align: left;
+  }
+  .content :global(th) {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 </style>

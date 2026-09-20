@@ -2,6 +2,7 @@
 title: 我的第一篇文章
 description: 这是用 Astro 搭建博客的第一篇文章。
 pubDate: 2026-08-14
+tags: ["随笔"]
 ---
 
 你好，世界！

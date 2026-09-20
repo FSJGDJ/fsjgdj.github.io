@@ -2,6 +2,7 @@
 title: 'Windows 驱动信息整理'
 description: '记录本机驱动服务列表与驱动签名校验信息'
 pubDate: 2026-09-05
+tags: ['Windows', '驱动']
 ---
 
 ## 说明

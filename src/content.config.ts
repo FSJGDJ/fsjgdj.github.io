@@ -9,6 +9,8 @@ const blog = defineCollection({
     title: z.string(),
     description: z.string(),
     pubDate: z.coerce.date(),
+    // 文章标签，可选；不填则按空数组处理
+    tags: z.array(z.string()).default([]),
   }),
 });
 

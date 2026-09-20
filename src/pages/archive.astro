@@ -1,0 +1,121 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+
+// 按年份分组
+const byYear = new Map<number, typeof posts>();
+for (const post of posts) {
+  const year = post.data.pubDate.getFullYear();
+  if (!byYear.has(year)) byYear.set(year, []);
+  byYear.get(year)!.push(post);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+---
+
+<Layout title="目录">
+  <section class="hero">
+    <h1>目录</h1>
+    <p class="subtitle">共 {posts.length} 篇文章</p>
+  </section>
+
+  {
+    years.map((year) => (
+      <section class="year-group">
+        <h2 class="year">{year}</h2>
+        <ul class="archive-list">
+          {byYear.get(year)!.map((post) => (
+            <li>
+              <a class="archive-item" href={`/blog/${post.id}`}>
+                <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+                <span class="title">{post.data.title}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</Layout>
+
+<style>
+  .hero {
+    margin-bottom: 2.5rem;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    margin: 0 0 0.4rem;
+    color: var(--text);
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .year-group {
+    margin-bottom: 2rem;
+  }
+  .year {
+    font-size: 1.25rem;
+    color: var(--muted);
+    margin: 0 0 0.6rem;
+  }
+
+  .archive-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .archive-list li {
+    border-bottom: 1px solid var(--border);
+  }
+  .archive-list li:last-child {
+    border-bottom: none;
+  }
+
+  .archive-item {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.7rem 0 0.7rem 0.5rem;
+    text-decoration: none;
+    color: var(--text);
+    position: relative;
+    transition: padding-left 0.2s;
+  }
+  .archive-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 1.1rem;
+    width: 3px;
+    height: 1.1rem;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .archive-item:hover {
+    padding-left: 0.9rem;
+  }
+  .archive-item:hover::before {
+    opacity: 1;
+  }
+  .archive-item:hover .title {
+    color: var(--accent);
+  }
+
+  .archive-item time {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .archive-item .title {
+    transition: color 0.2s;
+  }
+</style>

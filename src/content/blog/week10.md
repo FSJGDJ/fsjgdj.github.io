@@ -2,6 +2,7 @@
 title: 'KMDF IOCTL 遥测驱动实战：Ring Buffer 与用户态导出'
 description: '自己写一个 KMDF 教学驱动，在内核态采集 IOCTL 元数据进环形缓冲区，再用用户态程序导出成 JSONL——附完整的踩坑记录。'
 pubDate: 2026-09-19
+tags: ["KMDF", "驱动开发", "Windows"]
 ---
 
 ## 前言

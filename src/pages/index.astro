@@ -1,67 +1,254 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { getCollection } from "astro:content";
+import { siteConfig } from "../config";
 
 const posts = (await getCollection("blog")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
 ---
 
-<Layout title="首页">
-  <section class="hero">
-    <h1>我的博客</h1>
-    <p class="subtitle">记录学习、生活与思考 </p>
+<Layout title="首页" wide panel={false}>
+  <script is:inline>
+    // 进场动画前置标记：JS 可用时才隐藏待入场元素，避免无 JS 时内容不可见
+    document.documentElement.classList.add("js");
+  </script>
+  <section class="landing reveal">
+    <img
+      class="avatar"
+      src={siteConfig.avatar}
+      alt={`${siteConfig.name} 的头像`}
+      width="96"
+      height="96"
+    />
+    <h1>{siteConfig.name}</h1>
+    <p class="subtitle">{siteConfig.tagline}</p>
+    {
+      siteConfig.motto && <p class="motto">{siteConfig.motto}</p>
+    }
+    <div class="social">
+      <a
+        href="https://github.com/FSJGDJ"
+        target="_blank"
+        rel="noopener"
+        aria-label="GitHub"
+        title="GitHub"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11.1 11.1 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.52 11.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"
+          ></path>
+        </svg>
+      </a>
+      {
+        siteConfig.email && (
+          <a href={`mailto:${siteConfig.email}`} aria-label="邮箱" title="邮箱">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <path d="m22 7-10 6L2 7"></path>
+            </svg>
+          </a>
+        )
+      }
+    </div>
+    <a href="#posts" class="scroll-hint" aria-label="向下滚动查看文章">
+      <svg
+        width="30"
+        height="30"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m6 9 6 6 6-6"></path>
+      </svg>
+    </a>
   </section>
 
-  <ul class="post-list">
+  <section id="posts" class="posts">
+    <ul class="post-list">
     {
-      posts.map((post) => (
-        <li>
+      posts.map((post, i) => (
+        <li
+          class="reveal"
+          style={`transition-delay:${Math.min(i, 8) * 90}ms`}
+        >
           <a class="post-card" href={`/blog/${post.id}`}>
-            <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+            <div class="post-meta">
+              <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+            </div>
             <h2>{post.data.title}</h2>
             <p>{post.data.description}</p>
-            <span class="read-more">阅读全文 →</span>
+            <div class="post-footer">
+              {post.data.tags?.map((tag) => (
+                <span class="tag">{tag}</span>
+              ))}
+              <span class="read-more">阅读全文 →</span>
+            </div>
           </a>
         </li>
       ))
     }
   </ul>
+  </section>
 </Layout>
 
-<style>
-  .hero {
-    margin-bottom: 2.5rem;
+<script>
+  // 进场动画：条目进入视口时上浮淡入（参考 fadeInUp，逐条错开）
+  const reveals = document.querySelectorAll<HTMLElement>(".reveal");
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.08 },
+    );
+    reveals.forEach((el) => observer.observe(el));
+  } else {
+    reveals.forEach((el) => el.classList.add("visible"));
   }
-  .hero h1 {
-    font-size: 2.2rem;
-    margin: 0 0 0.4rem;
-    background: linear-gradient(120deg, #6366f1, #ec4899);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+</script>
+
+<style>
+  /* 首屏 Landing：整屏照片 + 居中个人信息，滚动后才见文章 */
+  .landing {
+    position: relative;
+    min-height: calc(100svh - 10rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 0.4rem;
+    padding: 1rem 0 3.5rem;
+  }
+  .avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  }
+  .landing h1 {
+    font-size: 2.4rem;
+    margin: 0;
+    color: var(--text);
   }
   .subtitle {
     color: var(--muted);
     margin: 0;
+  }
+  .motto {
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 1.2rem 0 0;
+    line-height: 1.6;
+  }
+
+  .social {
+    display: flex;
+    gap: 0.9rem;
+    margin-top: 1.2rem;
+  }
+  .social a {
+    display: inline-flex;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--muted);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .social a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* 底部下滑箭头：轻微上下浮动 */
+  .scroll-hint {
+    position: absolute;
+    bottom: 0.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    padding: 0.5rem;
+    color: var(--muted);
+    transition: color 0.2s;
+  }
+  .scroll-hint:hover {
+    color: var(--accent);
+  }
+  .scroll-hint svg {
+    animation: bounce-down 2.2s ease-in-out infinite;
+  }
+  @keyframes bounce-down {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-hint svg {
+      animation: none;
+    }
+  }
+
+  /* 文章区：滚过首屏后出现 */
+  .posts {
+    margin-top: 2rem;
+    scroll-margin-top: 5rem;
   }
 
   .post-list {
     list-style: none;
     padding: 0;
     margin: 0;
+    /* 卡片之间的空隙直接露出背景照片 */
     display: grid;
-    gap: 1.2rem;
+    gap: 1.6rem;
   }
 
+  /* 每篇文章一张独立毛玻璃卡片，悬浮在照片上 */
   .post-card {
     display: block;
     background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 1.4rem 1.6rem;
+    padding: 1.6rem 1.7rem;
     text-decoration: none;
     color: var(--text);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     transition:
       transform 0.2s,
       box-shadow 0.2s,
@@ -69,13 +256,23 @@ const posts = (await getCollection("blog")).sort(
   }
   .post-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    border-color: var(--accent);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  }
+  .post-card:hover h2 {
+    color: var(--accent);
+  }
+  .post-card h2 {
+    transition: color 0.2s;
   }
 
-  .post-card time {
+  .post-meta {
     color: var(--muted);
     font-size: 0.85rem;
+    font-family: var(--font-mono);
+  }
+  .post-meta .dot {
+    margin: 0 0.4rem;
   }
   .post-card h2 {
     margin: 0.4rem 0 0.5rem;
@@ -86,8 +283,45 @@ const posts = (await getCollection("blog")).sort(
     color: var(--muted);
     font-size: 0.95rem;
   }
+
+  .post-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
   .read-more {
+    margin-left: auto;
     color: var(--accent);
     font-size: 0.9rem;
+  }
+
+  /* 进场动画：JS 可用时先隐藏，进入视口后上浮淡入、逐条错开 */
+  :global(html.js) .reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+      opacity 0.7s ease,
+      transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  :global(html.js) .reveal.visible {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
   }
 </style>

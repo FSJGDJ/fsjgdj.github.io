@@ -1,9 +1,14 @@
 ---
 interface Props {
   title: string;
+  /** 首页等页面可加宽显示区域 */
+  wide?: boolean;
+  /** 是否用整张毛玻璃面板包裹内容（首页用独立卡片时关掉） */
+  panel?: boolean;
 }
-const { title } = Astro.props;
+const { title, wide, panel = true } = Astro.props;
 const year = new Date().getFullYear();
+import { siteConfig } from "../config";
 ---
 
 <!doctype html>
@@ -11,59 +16,257 @@ const year = new Date().getFullYear();
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
     <title>{title} · 我的博客</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate" type="application/rss+xml" title="我的博客" href="/rss.xml" />
+    <!-- 主题初始化：在任何内容渲染前应用，防止刷新闪烁 (FOUC) -->
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.dataset.theme = t;
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <header class="site-header">
-      <div class="container header-inner">
-        <a href="/" class="logo">🚀 我的博客</a>
+      <div class="header-inner">
+        <a href="/" class="logo">🚀 fsjdg的空间</a>
         <nav>
           <a href="/">首页</a>
+          <a href="/archive/">目录</a>
           <a href="https://github.com/FSJGDJ" target="_blank" rel="noopener"
             >GitHub</a
           >
+          <button class="theme-toggle" type="button" aria-label="切换明暗模式">
+            <svg
+              class="icon-sun"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+            <svg
+              class="icon-moon"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
         </nav>
       </div>
     </header>
-    <main class="container">
-      <slot />
+    <main class:list={["container", { "container-wide": wide }]}>
+      {panel ? <div class="glass-panel"><slot /></div> : <slot />}
     </main>
     <footer class="site-footer">
       <p>
-        © {year} 我的博客 · Powered by <a
+        © {year} 我的博客 · <a href="https://github.com/FSJGDJ" target="_blank"
+          rel="noopener">GitHub</a
+        > · <a href="/rss.xml">RSS</a>
+        {siteConfig.email && (
+          <>
+            {" "}· <a href={`mailto:${siteConfig.email}`}>邮箱</a>
+          </>
+        )}
+        · Powered by <a
           href="https://astro.build"
           target="_blank"
           rel="noopener">Astro</a
         >
       </p>
     </footer>
+
+    <!-- 代码块复制按钮：为文章内的 pre 包一层 wrapper 并加复制按钮 -->
+    <script>
+      function setupCodeCopy() {
+        document.querySelectorAll("pre").forEach((pre) => {
+          if (pre.closest(".code-block")) return;
+          const wrap = document.createElement("div");
+          wrap.className = "code-block";
+          pre.replaceWith(wrap);
+          wrap.appendChild(pre);
+
+          const btn = document.createElement("button");
+          btn.className = "code-copy";
+          btn.type = "button";
+          btn.textContent = "复制";
+          btn.addEventListener("click", async () => {
+            const code = pre.querySelector("code");
+            if (!code) return;
+            try {
+              await navigator.clipboard.writeText(code.innerText);
+            } catch (e) {
+              // 剪贴板 API 不可用时的兜底
+              const ta = document.createElement("textarea");
+              ta.value = code.innerText;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand("copy");
+              ta.remove();
+            }
+            btn.textContent = "已复制 ✓";
+            btn.classList.add("copied");
+            setTimeout(() => {
+              btn.textContent = "复制";
+              btn.classList.remove("copied");
+            }, 1500);
+          });
+          wrap.appendChild(btn);
+        });
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", setupCodeCopy);
+      } else {
+        setupCodeCopy();
+      }
+    </script>
+
+    <!-- 明暗切换：data-theme 优先，其次跟随系统 -->
+    <script>
+      (function () {
+        const btn = document.querySelector(".theme-toggle");
+        if (!btn) return;
+        const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+        function resolved() {
+          const t = document.documentElement.dataset.theme;
+          if (t === "light" || t === "dark") return t;
+          return mq.matches ? "dark" : "light";
+        }
+
+        function updateIcon() {
+          const dark = resolved() === "dark";
+          btn.querySelector(".icon-sun").toggleAttribute("hidden", !dark);
+          btn.querySelector(".icon-moon").toggleAttribute("hidden", dark);
+          btn.setAttribute(
+            "aria-label",
+            dark ? "切换到亮色模式" : "切换到暗色模式",
+          );
+        }
+
+        btn.addEventListener("click", () => {
+          const next = resolved() === "dark" ? "light" : "dark";
+          document.documentElement.dataset.theme = next;
+          try {
+            localStorage.setItem("theme", next);
+          } catch (e) {}
+          updateIcon();
+        });
+
+        mq.addEventListener("change", () => {
+          // 用户未手动选择时，跟随系统变化
+          if (!document.documentElement.dataset.theme) updateIcon();
+        });
+
+        updateIcon();
+      })();
+    </script>
   </body>
 </html>
 
 <style>
-  :root {
-    --bg: #f7f7f8;
-    --card: #ffffff;
+  :root,
+  [data-theme="light"] {
+    --bg: #fafafa;
+    --card: rgba(255, 255, 255, 0.72);
     --text: #1f2328;
-    --muted: #6b7280;
-    --accent: #6366f1;
-    --border: #e5e7eb;
+    --muted: #5b6470;
+    --accent: #4f46e5;
+    --border: rgba(229, 231, 235, 0.9);
+    --code-bg: #0d1117;
+    --code-text: #e6edf3;
+    --font-mono:
+      "JetBrains Mono", "Cascadia Code", Consolas, "SFMono-Regular",
+      Menlo, monospace;
+    --font-serif:
+      "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong",
+      "SimSun", serif;
   }
 
-  /* 系统暗色模式自动切换 */
+  /* 系统暗色模式自动切换（未手动选择时生效） */
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115;
-      --card: #171a21;
+    :root:not([data-theme="light"]) {
+      --bg: #111114;
+      --card: rgba(23, 26, 33, 0.74);
       --text: #e6e8ee;
-      --muted: #9aa9b2;
-      --accent: #818cf8;
-      --border: #2a2f3a;
+      --muted: #a8b3bd;
+      --accent: #a5b4fc;
+      --border: rgba(42, 47, 58, 0.9);
+      --code-bg: #0d1117;
+      --code-text: #e6edf3;
     }
+  }
+
+  [data-theme="dark"] {
+    --bg: #111114;
+    --card: rgba(23, 26, 33, 0.74);
+    --text: #e6e8ee;
+    --muted: #a8b3bd;
+    --accent: #a5b4fc;
+    --border: rgba(42, 47, 58, 0.9);
+    --code-bg: #0d1117;
+    --code-text: #e6edf3;
   }
 
   * {
     box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* 全屏固定背景图：云海山峦 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: url("/images/bg.jpg") center / cover no-repeat;
+  }
+  /* 可读性遮罩：亮色蒙白纱、暗色蒙深纱，保证文字可读又不盖死照片 */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgba(250, 250, 250, 0.45);
+  }
+  :global(html[data-theme="dark"]) body::after {
+    background: rgba(17, 17, 20, 0.55);
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme="light"])) body::after {
+      background: rgba(17, 17, 20, 0.55);
+    }
   }
 
   body {
@@ -82,17 +285,31 @@ const year = new Date().getFullYear();
     flex-direction: column;
   }
 
+  /* 标题统一衬线字体，正文保持无衬线，形成中西文混排的杂志感 */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
   .container {
-    width: min(720px, 92%);
+    width: min(680px, 92%);
     margin: 0 auto;
+  }
+  /* 首页等需要加宽的页面 */
+  .container-wide {
+    width: min(780px, 94%);
   }
 
   .site-header {
     position: sticky;
     top: 0;
     z-index: 10;
-    backdrop-filter: blur(8px);
-    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: color-mix(in srgb, var(--card) 82%, transparent);
     border-bottom: 1px solid var(--border);
   }
 
@@ -100,7 +317,7 @@ const year = new Date().getFullYear();
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.9rem 0;
+    padding: 0.9rem 1.5rem;
   }
 
   .logo {
@@ -108,6 +325,11 @@ const year = new Date().getFullYear();
     font-size: 1.1rem;
     color: var(--text);
     text-decoration: none;
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
   }
 
   nav a {
@@ -121,9 +343,46 @@ const year = new Date().getFullYear();
     color: var(--accent);
   }
 
+  .theme-toggle {
+    margin-left: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .theme-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
   main {
     flex: 1;
     padding: 2.5rem 0 4rem;
+  }
+
+  /* 内容区：浮在照片上的一整张毛玻璃"纸" */
+  .glass-panel {
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.2rem 2.4rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+  @media (max-width: 640px) {
+    .glass-panel {
+      padding: 1.4rem 1.2rem;
+      border-radius: 12px;
+    }
   }
 
   .site-footer {
@@ -132,8 +391,57 @@ const year = new Date().getFullYear();
     text-align: center;
     color: var(--muted);
     font-size: 0.85rem;
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   .site-footer a {
     color: var(--muted);
+  }
+  .site-footer a:hover {
+    color: var(--accent);
+  }
+
+  /* 代码块：深色底，明暗模式统一 */
+  .code-block {
+    position: relative;
+    margin: 1.2rem 0;
+  }
+  .code-block pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+  .code-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #161b22;
+    color: #8b949e;
+    font-size: 0.75rem;
+    font-family: inherit;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .code-block:hover .code-copy,
+  .code-copy:focus-visible {
+    opacity: 1;
+  }
+  .code-copy:hover {
+    color: #e6edf3;
+  }
+  .code-copy.copied {
+    color: #3fb950;
+    border-color: #238636;
   }
 </style>
