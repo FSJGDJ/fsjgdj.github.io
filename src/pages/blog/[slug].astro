@@ -1,6 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { getCollection, render } from "astro:content";
+import { getPostStats } from "../../utils/postStats";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog");
@@ -17,8 +18,8 @@ const { Content, headings } = await render(post);
 // 目录只收 h2 / h3（第一版：扁平列表）
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
-// 中文约 400 字/分钟，估算阅读时长
-const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
+// 与首页卡片同一口径的阅读时长（正文自动统计）
+const { minutes: readingTime } = getPostStats(post.body ?? "");
 ---
 
 <Layout title={post.data.title} articleWide>
@@ -135,6 +136,124 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
       { passive: true },
     );
     computeActive();
+  })();
+
+  // 正文图片 Lightbox：点击放大；遮罩/关闭按钮/ESC 退出；
+  // 箭头按钮与方向键切换；移动端左右滑动切换
+  (function () {
+    const imgs = Array.from(
+      document.querySelectorAll<HTMLImageElement>(".content img"),
+    );
+    if (imgs.length === 0) return;
+
+    // 遮罩层运行时创建并挂到 body 下，避开 glass-panel 的
+    // backdrop-filter 对后代 fixed 定位的劫持
+    const overlay = document.createElement("div");
+    overlay.className = "lightbox";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "图片预览");
+    overlay.innerHTML = `
+      <button class="lb-close" type="button" aria-label="关闭预览" title="关闭 (ESC)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+      <button class="lb-arrow lb-prev" type="button" aria-label="上一张" title="上一张 (←)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6"></path>
+        </svg>
+      </button>
+      <img class="lb-view" alt="" />
+      <button class="lb-arrow lb-next" type="button" aria-label="下一张" title="下一张 (→)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m9 18 6-6-6-6"></path>
+        </svg>
+      </button>
+      <p class="lb-counter" aria-live="polite"></p>
+    `;
+    document.body.appendChild(overlay);
+
+    const view = overlay.querySelector<HTMLImageElement>(".lb-view")!;
+    const counter = overlay.querySelector<HTMLElement>(".lb-counter")!;
+    const btnClose = overlay.querySelector<HTMLButtonElement>(".lb-close")!;
+    const btnPrev = overlay.querySelector<HTMLButtonElement>(".lb-prev")!;
+    const btnNext = overlay.querySelector<HTMLButtonElement>(".lb-next")!;
+
+    let index = 0;
+    let isOpen = false;
+    const multi = imgs.length > 1;
+
+    function render() {
+      const img = imgs[index];
+      view.src = img.currentSrc || img.src;
+      view.alt = img.alt || "";
+      counter.textContent = `${index + 1} / ${imgs.length}`;
+      // 单张图片时隐藏切换箭头
+      btnPrev.style.display = multi ? "" : "none";
+      btnNext.style.display = multi ? "" : "none";
+    }
+
+    function open(i: number) {
+      index = i;
+      render();
+      overlay.classList.add("open");
+      document.body.style.overflow = "hidden"; // 锁定背景滚动
+      isOpen = true;
+    }
+
+    function close() {
+      overlay.classList.remove("open");
+      document.body.style.overflow = "";
+      isOpen = false;
+    }
+
+    function step(delta: number) {
+      if (!multi) return;
+      index = (index + delta + imgs.length) % imgs.length;
+      render();
+    }
+
+    imgs.forEach((img, i) => {
+      img.addEventListener("click", (e) => {
+        e.preventDefault();
+        open(i);
+      });
+    });
+
+    // 点击遮罩（非图片/按钮区域）退出
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    btnClose.addEventListener("click", close);
+    btnPrev.addEventListener("click", () => step(-1));
+    btnNext.addEventListener("click", () => step(1));
+
+    document.addEventListener("keydown", (e) => {
+      if (!isOpen) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") step(-1);
+      else if (e.key === "ArrowRight") step(1);
+    });
+
+    // 移动端滑动手势切换
+    let touchX = 0;
+    overlay.addEventListener(
+      "touchstart",
+      (e) => {
+        touchX = e.changedTouches[0].clientX;
+      },
+      { passive: true },
+    );
+    overlay.addEventListener(
+      "touchend",
+      (e) => {
+        const dx = e.changedTouches[0].clientX - touchX;
+        if (Math.abs(dx) < 40) return; // 小于阈值视为点击
+        step(dx < 0 ? 1 : -1);
+      },
+      { passive: true },
+    );
   })();
 </script>
 
@@ -355,6 +474,108 @@ const readingTime = Math.max(1, Math.ceil(post.body.length / 400));
   .content :global(img) {
     max-width: 100%;
     border-radius: 10px;
+    cursor: zoom-in;
+  }
+
+  /* Lightbox 遮罩层（运行时挂到 body，须用 :global） */
+  :global(.lightbox) {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 12, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.25s ease,
+      visibility 0s 0.25s;
+  }
+  :global(.lightbox.open) {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease;
+  }
+  :global(.lb-view) {
+    max-width: min(92vw, 1200px);
+    max-height: 84vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+    cursor: default;
+  }
+  :global(.lb-close),
+  :global(.lb-arrow) {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  :global(.lb-close:hover),
+  :global(.lb-arrow:hover) {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+  }
+  :global(.lb-close) {
+    top: 1.2rem;
+    right: 1.2rem;
+  }
+  :global(.lb-arrow) {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  :global(.lb-prev) {
+    left: 1.2rem;
+  }
+  :global(.lb-next) {
+    right: 1.2rem;
+  }
+  :global(.lb-counter) {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  /* 小屏：图片几乎满屏，箭头缩小贴边，切换主要靠滑动 */
+  @media (max-width: 640px) {
+    :global(.lb-view) {
+      max-width: 96vw;
+      max-height: 78vh;
+    }
+    :global(.lb-arrow) {
+      width: 34px;
+      height: 34px;
+    }
+    :global(.lb-prev) {
+      left: 0.5rem;
+    }
+    :global(.lb-next) {
+      right: 0.5rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.lightbox),
+    :global(.lightbox.open),
+    :global(.lb-close),
+    :global(.lb-arrow) {
+      transition: none;
+    }
   }
   .content :global(table) {
     border-collapse: collapse;

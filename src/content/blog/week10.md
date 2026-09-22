@@ -2,14 +2,11 @@
 title: 'KMDF IOCTL 遥测驱动实战：Ring Buffer 与用户态导出'
 description: '自己写一个 KMDF 教学驱动，在内核态采集 IOCTL 元数据进环形缓冲区，再用用户态程序导出成 JSONL——附完整的踩坑记录。'
 pubDate: 2026-09-19
-tags: ["KMDF", "驱动开发", "Windows"]
 ---
 
 ## 前言
 
-这次做了一个完整的驱动教学项目：自己编写一个 KMDF 驱动（编译产物 `TEST.sys`），在内核态把每个 IOCTL 请求的**元数据**采集进一个固定容量的 Ring Buffer，
-再配一个用户态采集器把数据导出成 `ioctl_events.jsonl`。
-从写代码、编译、签名到虚拟机加载实测全流程走通，把过程和踩的坑记录下来。
+这次做了一个完整的驱动教学项目：自己编写一个 KMDF 驱动（编译产物 `TEST.sys`），在内核态把每个 IOCTL 请求的**元数据**采集进一个固定容量的 Ring Buffer，再配一个用户态采集器把数据导出成 `ioctl_events.jsonl`。从写代码、编译、签名到虚拟机加载实测全流程走通，把过程和踩的坑记录下来。
 
 ## 一、设计思路
 
@@ -87,17 +84,13 @@ VOID TelRecordWrite(const TEL_RECORD *Rec)
 #define TEL_IOCTL_QUERY  CTL_CODE(TEL_DEVICE_TYPE, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
 ```
 
-`EvtIoDeviceControl` 里 `TEL_IOCTL_WORK` 完成"工作"（回写请求序号）后落一条遥测；`TEL_IOCTL_QUERY` 把统计头 + 64 条快照拷给用户态，
-**自己不写 Ring**，避免查询行为污染数据。
-设备符号链接 `\\.\TelemetryDev`，用户态直接 `CreateFile` 打开。
+`EvtIoDeviceControl` 里 `TEL_IOCTL_WORK` 完成"工作"（回写请求序号）后落一条遥测；`TEL_IOCTL_QUERY` 把统计头 + 64 条快照拷给用户态，**自己不写 Ring**，避免查询行为污染数据。设备符号链接 `\\.\TelemetryDev`，用户态直接 `CreateFile` 打开。
 
 ## 二、踩坑记录（本次最有价值的部分）
 
 ### 1. WDK 版本重定向
 
-VS 里构建直接报 `MSB4062: 无法加载 Microsoft.DriverKit.Build.Tasks.18.0.dll`。
-原因是项目没写死 SDK 版本，MSBuild 自动解析到了**已经卸载的** 10.0.26100.0，而机器上实际装的是 10.0.28000.0。
-VS 的"重定向项目"对话框又检测不到升级项（旧版本残留注册表但文件已删）。
+VS 里构建直接报 `MSB4062: 无法加载 Microsoft.DriverKit.Build.Tasks.18.0.dll`。原因是项目没写死 SDK 版本，MSBuild 自动解析到了**已经卸载的** 10.0.26100.0，而机器上实际装的是 10.0.28000.0。VS 的"重定向项目"对话框又检测不到升级项（旧版本残留注册表但文件已删）。
 
 解法：直接改 `.vcxproj`，在全部 4 个配置组里钉死版本：
 
@@ -107,9 +100,7 @@ VS 的"重定向项目"对话框又检测不到升级项（旧版本残留注册
 
 ### 2. C4819：中文注释 + 无 BOM UTF-8
 
-驱动项目把警告当错误，`C4819`（无效字符）直接升级成编译失败。
-源文件是 UTF-8 但没带 BOM，MSVC 在代码页 936（GBK）下解码炸了。
-给所有源文件加上 **UTF-8 BOM** 即可（或者项目统一加 `/utf-8` 编译选项）。
+驱动项目把警告当错误，`C4819`（无效字符）直接升级成编译失败。源文件是 UTF-8 但没带 BOM，MSVC 在代码页 936（GBK）下解码炸了。给所有源文件加上 **UTF-8 BOM** 即可（或者项目统一加 `/utf-8` 编译选项）
 
 ### 3. 0xE000022F：INF 不含数字签名信息
 
@@ -134,8 +125,7 @@ VM 里敲 `devcon` 报"不是内部或外部命令"——它只在装了 WDK 的
 
 ### 5. C:\Windows\System32\drivers 别乱放
 
-这是系统自带驱动的目录（TrustedInstaller 保护），自己测试用的 INF/sys/exe 应该放自建的 `C:\drivers`。
-安装后系统会自动把 sys 复制进 DriverStore 管理，`C:\drivers` 里的只是安装来源。
+这是系统自带驱动的目录（TrustedInstaller 保护），自己测试用的 INF/sys/exe 应该放自建的 `C:\drivers`。安装后系统会自动把 sys 复制进 DriverStore 管理，`C:\drivers` 里的只是安装来源。
 
 ## 三、实测结果
 
@@ -149,15 +139,13 @@ VM 里敲 `devcon` 报"不是内部或外部命令"——它只在装了 WDK 的
 | overwriteCount | 249 | **313 − 64 = 249，分毫不差** |
 | validCount | 64 | Ring 容量上限 |
 
-最有说服力的就是覆盖数：313 次写入灌进 64 个槽位，被挤掉的最旧记录恰好是 313 − 64 = 249 条，环形缓冲区的覆盖语义被精确验证。
-`ioctl_events.jsonl` 里保留的是最新的 64 条，失败请求的 `completion_status` 非 0，四个解码字段齐全。
+最有说服力的就是覆盖数：313 次写入灌进 64 个槽位，被挤掉的最旧记录恰好是 313 − 64 = 249 条，环形缓冲区的覆盖语义被精确验证。`ioctl_events.jsonl` 里保留的是最新的 64 条，失败请求的 `completion_status` 非 0，四个解码字段齐全。
 
 ### 遥测数据下载
 
 - [📥 ioctl_events.jsonl：Ring Buffer 快照导出，64 条遥测记录（JSONL）](/ioctl_events.jsonl)
 
-每行一条 JSON 事件，包含时间戳、请求进程 PID、IOCTL 编号及解出的 device_type / function / method / access 四字段、输入输出长度和完成状态。
-可以搜索 `"completion_status":"0x00000000"` 之外的状态值定位那 4 条预设失败请求。
+每行一条 JSON 事件，包含时间戳、请求进程 PID、IOCTL 编号及解出的 device_type / function / method / access 四字段、输入输出长度和完成状态。可以搜索 `"completion_status":"0x00000000"` 之外的状态值定位那 4 条预设失败请求。
 
 ## 四、总结
 
