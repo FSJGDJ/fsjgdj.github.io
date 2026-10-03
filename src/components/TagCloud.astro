@@ -1,0 +1,80 @@
+---
+/**
+ * 标签云：字号按标签出现次数映射，上限硬性封顶。
+ * 供首页侧栏与将来的 /tags 页共用。
+ */
+interface Props {
+  /** 标签及其文章数，按期望展示顺序传入（一般已按数量降序） */
+  items: { name: string; count: number }[];
+}
+
+const TAG_FONT_MIN = 0.78; // rem，出现 1 次时的字号
+const TAG_FONT_MAX = 1.45; // rem，硬上限：再高频也不超过
+
+const { items } = Astro.props;
+
+// 对数线性插值：标签频次是长尾分布，log 能在中低频段保留层次，
+// 线性映射会让所有 1~2 篇的标签挤成同一尺寸。
+const counts = items.map((i) => i.count);
+const cMin = counts.length > 0 ? Math.min(...counts) : 1;
+const cMax = counts.length > 0 ? Math.max(...counts) : 1;
+const span = Math.log(cMax) - Math.log(cMin);
+
+const tags = items.map((t) => {
+  // span 为 0 说明所有标签频次相同，取中位避免除零
+  const ratio =
+    span > 0 ? (Math.log(t.count) - Math.log(cMin)) / span : 0.5;
+  const size = TAG_FONT_MIN + (TAG_FONT_MAX - TAG_FONT_MIN) * ratio;
+  return { ...t, fontSize: Math.min(size, TAG_FONT_MAX) };
+});
+---
+
+<div class="tag-cloud">
+  {
+    tags.map((t) => (
+      <span
+        class="tag"
+        style={`font-size:${t.fontSize.toFixed(3)}rem`}
+        title={`${t.name} · ${t.count} 篇`}
+      >
+        {t.name}
+        <span class="sr-only">（{t.count} 篇）</span>
+      </span>
+    ))
+  }
+</div>
+
+<style>
+  /* flex 换行：每个标签是独立盒，标签再多也只增加行高，不会破版。
+     align-items:center 让不同字号的标签在同一行垂直居中，避免基线参差。 */
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    /* 标签数量失控时的兜底：约 6 行后容器内滚动，不把整页撑变形 */
+    max-height: 12rem;
+    overflow-y: auto;
+  }
+  /* 胶囊样式与站点内既有的 .tag 完全一致（文章卡片 / 文章页同款） */
+  .tag {
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    font-size: 0.75rem;
+  }
+  /* 数量已由字号表达，但读屏软件读不出字号，所以保留一份纯文本 */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

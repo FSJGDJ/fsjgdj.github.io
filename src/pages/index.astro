@@ -3,6 +3,7 @@ import Layout from "../layouts/Layout.astro";
 import { getCollection } from "astro:content";
 import { siteConfig } from "../config";
 import { getPostStats } from "../utils/postStats";
+import TagCloud from "../components/TagCloud.astro";
 
 const posts = (await getCollection("blog")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
@@ -10,7 +11,17 @@ const posts = (await getCollection("blog")).sort(
 
 // 侧栏统计：文章数 / 标签数 / 运行天数（自最早一篇文章起算，构建时计算）
 const tagSet = new Set<string>();
-for (const p of posts) for (const t of p.data.tags ?? []) tagSet.add(t);
+// 侧栏标签卡：统计每个标签的文章数，按数量降序（同数量按名称排，保证构建输出稳定）
+const tagCount = new Map<string, number>();
+for (const p of posts) {
+  for (const t of p.data.tags ?? []) {
+    tagSet.add(t);
+    tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+  }
+}
+const tagList = Array.from(tagCount.entries())
+  .map(([name, count]) => ({ name, count }))
+  .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 const earliest = posts[posts.length - 1]?.data.pubDate ?? new Date();
 const runDays = Math.max(
   1,
@@ -231,6 +242,15 @@ const pathname = Astro.url.pathname;
             <span>归档</span>
           </a>
         </nav>
+
+        {
+          tagList.length > 0 && (
+            <section class="tag-panel" aria-label="标签">
+              <p class="tag-panel-title">标签</p>
+              <TagCloud items={tagList} />
+            </section>
+          )
+        }
       </aside>
 
       <ul class="post-list">
@@ -521,6 +541,23 @@ const pathname = Astro.url.pathname;
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
+  /* 标签卡：卡片外壳与 .side-nav 完全同款（毛玻璃 + 14px 圆角 + 同一投影） */
+  .tag-panel {
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.9rem 1rem 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+  .tag-panel-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
   @media (max-width: 1023px) {
     /* 窄屏退回单栏：名片变为横向条，导航卡隐藏（顶部导航已有同等入口） */
     .posts-layout {
@@ -530,6 +567,10 @@ const pathname = Astro.url.pathname;
       position: static;
     }
     .side-nav {
+      display: none;
+    }
+    /* 标签卡同样隐藏：窄屏侧栏只保留作者名片，避免首屏被三块内容占满 */
+    .tag-panel {
       display: none;
     }
     .author-card {
