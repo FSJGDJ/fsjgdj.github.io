@@ -767,4 +767,10 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
   .content :global(th) {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
+  /* CJK 的 min-content 宽度只有 1 个字，浏览器默认表格布局会把首列压成竖排，
+     强制首列不换行（表头/首列都是短词，不会撑破布局） */
+  .content :global(th:first-child),
+  .content :global(td:first-child) {
+    white-space: nowrap;
+  }
 </style>
