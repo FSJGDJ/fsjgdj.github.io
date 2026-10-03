@@ -255,6 +255,104 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
       { passive: true },
     );
   })();
+
+  // 代码块复制按钮：
+  // 运行时给每个 pre 包一层 .code-block wrapper，按钮作为 wrapper 的绝对定位子元素。
+  // 不能把按钮放进 pre 内部——pre 自带 overflow-x:auto，按钮会跟着横向滚动跑掉。
+  (function () {
+    const pres = document.querySelectorAll<HTMLElement>(
+      ".content pre.astro-code",
+    );
+    if (pres.length === 0) return;
+
+    const ICON_COPY =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+    const ICON_OK =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>';
+    const ICON_ERR =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5"></path><path d="M12 16h.01"></path></svg>';
+
+    // Shiki 把每行包在 <span class="line"> 里，逐行取 textContent 即可拿到
+    // 纯文本：自动剥离高亮 span、行号等非内容部分，缩进原样保留。
+    function extract(pre: HTMLElement): string {
+      const code = pre.querySelector("code");
+      if (!code) return pre.textContent ?? "";
+      const lines = code.querySelectorAll<HTMLElement>(".line");
+      if (lines.length === 0) return code.textContent ?? "";
+      return Array.from(lines)
+        .map((l) => l.textContent ?? "")
+        .join("\n");
+    }
+
+    // 非安全上下文（file://、http 局域网）或权限被拒时的兜底
+    function fallbackCopy(text: string): boolean {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (e) {
+        ok = false;
+      }
+      ta.remove();
+      return ok;
+    }
+
+    pres.forEach((pre) => {
+      const wrap = document.createElement("div");
+      wrap.className = "code-block";
+      pre.replaceWith(wrap);
+      wrap.appendChild(pre);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "code-copy";
+      btn.setAttribute("aria-label", "复制代码");
+      btn.title = "复制代码";
+      btn.innerHTML = `<span class="code-copy-icon">${ICON_COPY}</span><span class="code-copy-text" aria-live="polite">复制</span>`;
+      wrap.appendChild(btn);
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      function flash(state: "ok" | "err") {
+        if (timer) clearTimeout(timer);
+        btn.classList.toggle("copied", state === "ok");
+        btn.classList.toggle("failed", state === "err");
+        const text = btn.querySelector(".code-copy-text");
+        const icon = btn.querySelector(".code-copy-icon");
+        if (text) text.textContent = state === "ok" ? "已复制" : "复制失败";
+        if (icon) icon.innerHTML = state === "ok" ? ICON_OK : ICON_ERR;
+        const label = state === "ok" ? "已复制" : "复制失败，请手动选择代码";
+        btn.setAttribute("aria-label", label);
+        btn.title = label;
+        timer = setTimeout(() => {
+          btn.classList.remove("copied", "failed");
+          if (text) text.textContent = "复制";
+          if (icon) icon.innerHTML = ICON_COPY;
+          btn.setAttribute("aria-label", "复制代码");
+          btn.title = "复制代码";
+        }, 2000);
+      }
+
+      btn.addEventListener("click", async () => {
+        const text = extract(pre);
+        if (!text) return;
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(text);
+          ok = true;
+        } catch (e) {
+          ok = fallbackCopy(text);
+        }
+        flash(ok ? "ok" : "err");
+      });
+    });
+  })();
 </script>
 
 <style>
@@ -444,8 +542,14 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     font-family: var(--font-mono);
   }
   /* 代码块：深色底（!important 压过 shiki 内联背景色） */
-  .content :global(pre.astro-code) {
+  /* 代码块外层：按钮要绝对定位在代码面上；垂直间距由 wrapper 承担
+     （运行时由脚本创建，必须用 :global） */
+  .content :global(.code-block) {
+    position: relative;
     margin: 1.2rem 0;
+  }
+  .content :global(pre.astro-code) {
+    margin: 0;
     background: var(--code-bg) !important;
     color: var(--code-text) !important;
     border-radius: 10px;
@@ -454,6 +558,77 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     font-family: var(--font-mono);
     font-size: 0.875rem;
     line-height: 1.7;
+  }
+
+  /* 复制按钮：默认隐藏，悬停代码块或键盘聚焦时淡入。
+     配色由 --code-text / --code-bg 派生，锚在代码面上（两种主题下均为深色），
+     因此明暗主题对比度一致；按钮绝对定位，不随 pre 横向滚动 */
+  .content :global(.code-copy) {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--code-text);
+    background: color-mix(in srgb, var(--code-text) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--code-text) 22%, transparent);
+    opacity: 0;
+    transform: translateY(-2px);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .content :global(.code-block:hover .code-copy),
+  .content :global(.code-copy:focus-visible) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .content :global(.code-copy:hover) {
+    background: color-mix(in srgb, var(--code-text) 22%, transparent);
+  }
+  .content :global(.code-copy:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .content :global(.code-copy.copied) {
+    color: #3fb950;
+    background: rgba(63, 185, 80, 0.16);
+    border-color: rgba(63, 185, 80, 0.5);
+  }
+  .content :global(.code-copy.failed) {
+    color: #f85149;
+    background: rgba(248, 81, 73, 0.16);
+    border-color: rgba(248, 81, 73, 0.55);
+  }
+
+  /* 触屏/窄屏：hover 不可用，按钮常显，并给 pre 预留一条独立的按钮行，
+     保证长代码行不会被按钮压住 */
+  @media (hover: none), (max-width: 640px) {
+    .content :global(.code-copy) {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .content :global(.code-block pre.astro-code) {
+      padding-top: 2.6rem;
+    }
+  }
+
+  /* 减弱动态效果：直接跳过按钮的淡入过渡 */
+  @media (prefers-reduced-motion: reduce) {
+    .content :global(.code-copy) {
+      transition: none;
+    }
   }
   /* 代码块内的 code 不用行内样式 */
   .content :global(pre code) {
