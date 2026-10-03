@@ -7,8 +7,10 @@ interface Props {
   articleWide?: boolean;
   /** 是否用整张毛玻璃面板包裹内容（首页用独立卡片时关掉） */
   panel?: boolean;
+  /** 是否启用背景漂移光斑（仅首屏类页面开启） */
+  drift?: boolean;
 }
-const { title, wide, articleWide, panel = true } = Astro.props;
+const { title, wide, articleWide, panel = true, drift = false } = Astro.props;
 const year = new Date().getFullYear();
 import { siteConfig } from "../config";
 ---
@@ -35,6 +37,15 @@ import { siteConfig } from "../config";
     </script>
   </head>
   <body>
+    {
+      drift && (
+        <div class="bg-drift" aria-hidden="true">
+          <span class="blob b1" />
+          <span class="blob b2" />
+          <span class="blob b3" />
+        </div>
+      )
+    }
     <header class="site-header">
       <div class="header-inner">
         <a href="/" class="logo">fsjdg的空间</a>
@@ -158,6 +169,13 @@ import { siteConfig } from "../config";
     --border: rgba(229, 231, 235, 0.9);
     --code-bg: #0d1117;
     --code-text: #e6edf3;
+    /* 背景图上的可读性遮罩（与背景图层合并，见 body::before） */
+    --scrim: rgba(250, 250, 250, 0.45);
+    /* 动效节奏变量：全站悬停/状态过渡只用这三档，避免各处手写时长打架 */
+    --dur-fast: 0.15s;
+    --dur-base: 0.2s;
+    --dur-slow: 0.3s;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
     --font-mono:
       "JetBrains Mono", "Cascadia Code", Consolas, "SFMono-Regular",
       Menlo, monospace;
@@ -177,6 +195,7 @@ import { siteConfig } from "../config";
       --border: rgba(42, 47, 58, 0.9);
       --code-bg: #0d1117;
       --code-text: #e6edf3;
+      --scrim: rgba(17, 17, 20, 0.55);
     }
   }
 
@@ -189,6 +208,7 @@ import { siteConfig } from "../config";
     --border: rgba(42, 47, 58, 0.9);
     --code-bg: #0d1117;
     --code-text: #e6edf3;
+    --scrim: rgba(17, 17, 20, 0.55);
   }
 
   * {
@@ -204,28 +224,101 @@ import { siteConfig } from "../config";
     }
   }
 
-  /* 全屏固定背景图：云海山峦 */
+  /* 全屏固定背景图：云海山峦 + 可读性遮罩。
+     遮罩从独立伪元素合并进背景层（同一个 linear-gradient 叠在图片上），
+     这样 z-index:-1 这一层就空出来给漂移光斑——否则光斑会被遮罩盖住，完全看不见。
+     视觉上等价：两层原本都是 inset:0 的 fixed 全屏覆盖。 */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     z-index: -2;
-    background: url("/images/bg.jpg") center / cover no-repeat;
+    background-image:
+      linear-gradient(var(--scrim), var(--scrim)),
+      url("/images/bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   }
-  /* 可读性遮罩：亮色蒙白纱、暗色蒙深纱，保证文字可读又不盖死照片 */
-  body::after {
-    content: "";
+  /* 遮罩色随主题切换：亮色蒙白纱、暗色蒙深纱 */
+
+  /* 背景漂移光斑：
+     叠在背景图+遮罩(-2)之上、内容之下(-1)，只动 transform 走合成层。
+     编排要点：①负延迟让三个光斑加载即处于不同相位，不会一起起步；
+     ②时长 7/10/13s 两两互质，合成周期极长，肉眼找不到循环点；
+     ③alternate 往返，首尾无缝无跳变。 */
+  .bg-drift {
     position: fixed;
     inset: 0;
     z-index: -1;
-    background: rgba(250, 250, 250, 0.45);
+    overflow: hidden;
+    pointer-events: none;
   }
-  :global(html[data-theme="dark"]) body::after {
-    background: rgba(17, 17, 20, 0.55);
+  .bg-drift .blob {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--accent) 30%, transparent) 0%,
+      transparent 68%
+    );
+    filter: blur(28px);
+    will-change: transform;
+    animation: drift-x var(--drift-dur) cubic-bezier(0.5, 0.5, 0.45, 0.5)
+      infinite alternate;
+    animation-delay: var(--drift-delay);
+  }
+  .bg-drift .b1 {
+    --drift-dur: 7s;
+    --drift-delay: -2s;
+    width: 46vw;
+    height: 46vw;
+    top: -12vw;
+    left: -8vw;
+    opacity: 0.5;
+  }
+  .bg-drift .b2 {
+    --drift-dur: 10s;
+    --drift-delay: -3s;
+    width: 38vw;
+    height: 38vw;
+    top: 8vh;
+    right: -10vw;
+    opacity: 0.38;
+  }
+  .bg-drift .b3 {
+    --drift-dur: 13s;
+    --drift-delay: -4s;
+    width: 42vw;
+    height: 42vw;
+    bottom: -14vw;
+    left: 24vw;
+    opacity: 0.3;
+  }
+  @keyframes drift-x {
+    from {
+      transform: translate3d(-70px, -22px, 0);
+    }
+    to {
+      transform: translate3d(70px, 22px, 0);
+    }
+  }
+  /* 暗色主题下光斑亮度更高，透明度压低避免抢戏 */
+  :global(html[data-theme="dark"]) .bg-drift .blob {
+    opacity: 0.22;
   }
   @media (prefers-color-scheme: dark) {
-    :global(html:not([data-theme="light"])) body::after {
-      background: rgba(17, 17, 20, 0.55);
+    :global(html:not([data-theme="light"])) .bg-drift .blob {
+      opacity: 0.22;
+    }
+  }
+  /* 减弱动态效果：装饰性漂移完全停掉。
+     必须放在漂移规则之后——同优先级下靠源码顺序决胜，放前面会被覆盖 */
+  @media (prefers-reduced-motion: reduce) {
+    .bg-drift .blob {
+      animation: none;
+      will-change: auto;
     }
   }
 
@@ -303,7 +396,7 @@ import { siteConfig } from "../config";
     text-decoration: none;
     margin-left: 1.2rem;
     font-size: 0.95rem;
-    transition: color 0.2s;
+    transition: color var(--dur-base) var(--ease);
   }
   nav a:hover {
     color: var(--accent);
@@ -322,7 +415,7 @@ import { siteConfig } from "../config";
     background: transparent;
     color: var(--muted);
     cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+    transition: color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
   }
   .theme-toggle:hover {
     color: var(--accent);

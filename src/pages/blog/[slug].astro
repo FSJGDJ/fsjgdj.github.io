@@ -421,7 +421,7 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
   .toc-mobile .toc-title::after {
     content: "▸";
     font-size: 0.7rem;
-    transition: transform 0.2s;
+    transition: transform var(--dur-base) var(--ease);
   }
   .toc-mobile details[open] > .toc-title::after,
   .toc-mobile[open] > .toc-title::after {
@@ -482,9 +482,9 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     border-radius: 0 6px 6px 0;
     margin-left: -2px;
     transition:
-      color 0.2s ease,
-      border-color 0.2s ease,
-      background-color 0.2s ease;
+      color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease);
   }
   .toc li.depth-3 a {
     padding-left: 1.6rem;
@@ -583,11 +583,11 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     opacity: 0;
     transform: translateY(-2px);
     transition:
-      opacity 0.2s ease,
-      transform 0.2s ease,
-      color 0.2s ease,
-      background-color 0.2s ease,
-      border-color 0.2s ease;
+      opacity var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease),
+      color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease);
   }
   .content :global(.code-block:hover .code-copy),
   .content :global(.code-copy:focus-visible) {
@@ -672,7 +672,7 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
   :global(.lightbox.open) {
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.25s ease;
+    transition: opacity var(--dur-base) var(--ease);
   }
   :global(.lb-view) {
     max-width: min(92vw, 1200px);
@@ -696,7 +696,7 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     background: rgba(255, 255, 255, 0.12);
     color: rgba(255, 255, 255, 0.85);
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
   }
   :global(.lb-close:hover),
   :global(.lb-arrow:hover) {

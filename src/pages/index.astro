@@ -21,7 +21,7 @@ const runDays = Math.max(
 const pathname = Astro.url.pathname;
 ---
 
-<Layout title="首页" wide panel={false}>
+<Layout title="首页" wide panel={false} drift>
   <script is:inline>
     // 进场动画前置标记：JS 可用时才隐藏待入场元素，避免无 JS 时内容不可见
     document.documentElement.classList.add("js");
@@ -240,7 +240,7 @@ const pathname = Astro.url.pathname;
           return (
           <li
             class="reveal"
-            style={`transition-delay:${Math.min(i, 8) * 90}ms`}
+            style={`transition-delay:${Math.min(i, 6) * 60}ms`}
           >
             <a class="post-card" href={`/blog/${post.id}`}>
               <div class="post-meta">
@@ -339,7 +339,7 @@ const pathname = Astro.url.pathname;
     border: 1px solid var(--border);
     border-radius: 50%;
     color: var(--muted);
-    transition: color 0.2s, border-color 0.2s;
+    transition: color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
   }
   .social a:hover {
     color: var(--accent);
@@ -355,7 +355,7 @@ const pathname = Astro.url.pathname;
     display: inline-flex;
     padding: 0.5rem;
     color: var(--muted);
-    transition: color 0.2s;
+    transition: color var(--dur-base) var(--ease);
   }
   .scroll-hint:hover {
     color: var(--accent);
@@ -473,7 +473,7 @@ const pathname = Astro.url.pathname;
     border: 1px solid var(--border);
     border-radius: 50%;
     color: var(--muted);
-    transition: color 0.2s, border-color 0.2s;
+    transition: color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
   }
   .author-links a:hover {
     color: var(--accent);
@@ -504,9 +504,9 @@ const pathname = Astro.url.pathname;
     border-left: 3px solid transparent;
     border-radius: 0 8px 8px 0;
     transition:
-      color 0.2s ease,
-      background-color 0.2s ease,
-      border-color 0.2s ease;
+      color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease);
   }
   .side-nav a svg {
     flex-shrink: 0;
@@ -587,9 +587,9 @@ const pathname = Astro.url.pathname;
     color: var(--text);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     transition:
-      transform 0.2s,
-      box-shadow 0.2s,
-      border-color 0.2s;
+      transform var(--dur-base) var(--ease),
+      box-shadow var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease);
   }
   .post-card:hover {
     transform: translateY(-3px);
@@ -600,7 +600,7 @@ const pathname = Astro.url.pathname;
     color: var(--accent);
   }
   .post-card h2 {
-    transition: color 0.2s;
+    transition: color var(--dur-base) var(--ease);
   }
 
   .post-meta {
@@ -646,8 +646,8 @@ const pathname = Astro.url.pathname;
     opacity: 0;
     transform: translateY(26px);
     transition:
-      opacity 0.7s ease,
-      transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+      opacity var(--dur-slow) var(--ease),
+      transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
     will-change: opacity, transform;
   }
   :global(html.js) .reveal.visible {
