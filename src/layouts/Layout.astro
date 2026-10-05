@@ -77,15 +77,6 @@ const pageTitle =
       title={siteConfig.siteName}
       href="/rss.xml"
     />
-    <!-- 霞鹜文楷 Lite：97 个 unicode-range 分片，浏览器只下载本页用到的几片 -->
-    <link rel="stylesheet" href="/fonts/lxgw/lxgw.css" />
-    <link
-      rel="preload"
-      as="font"
-      type="font/woff2"
-      href="/fonts/lxgw/lxgwwenkailite-regular-subset-118.woff2"
-      crossorigin
-    />
     <!-- 主题初始化：在任何内容渲染前应用，防止刷新闪烁 (FOUC) -->
     <script is:inline>
       (function () {
@@ -277,16 +268,12 @@ const pageTitle =
     --dur-base: 0.2s;
     --dur-slow: 0.3s;
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
-    --font-sans:
-      system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     --font-mono:
       "JetBrains Mono", "Cascadia Code", Consolas, "SFMono-Regular",
       Menlo, monospace;
-    /* 标题字体：霞鹜文楷 Lite（自托管分包，public/fonts/lxgw）
-       后面几个是兜底——字体没加载完时先落系统衬线，不会出现无衬线的空档 */
     --font-serif:
-      "LXGW WenKai Lite", "Source Han Serif SC", "Noto Serif SC", "Songti SC",
-      "STSong", "SimSun", serif;
+      "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong",
+      "SimSun", serif;
   }
 
   /* 系统暗色模式自动切换（未手动选择时生效） */
@@ -463,11 +450,13 @@ const pageTitle =
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--font-sans);
+    font-family:
+      system-ui,
+      -apple-system,
+      "PingFang SC",
+      "Microsoft YaHei",
+      sans-serif;
     line-height: 1.8;
-    /* 中英文/数字与汉字之间自动加空隙（"用 ffmpeg 和 Node.js" 这类混排会明显精致）。
-       渐进增强：目前 Firefox / Safari 已支持，Chromium 尚未实现，不支持的老浏览器直接忽略 */
-    text-autospace: normal;
     display: flex;
     min-height: 100vh;
     flex-direction: column;
@@ -494,16 +483,14 @@ const pageTitle =
     will-change: transform;
   }
 
-  /* 标题统一用标题字体（霞鹜文楷），正文保持无衬线，形成中西文混排的杂志感。
-     字重用 500：自托管只装了 Regular 一个字重，500 会直接落到 400，
-     不会像 600 那样被浏览器合成 faux-bold 把楷体笔画糊粗。
+  /* 标题统一衬线字体，正文保持无衬线，形成中西文混排的杂志感。
      必须 :global——markdown 渲染出的标题不带本组件的 scoped 属性，
      否则会回退成 body 同款无衬线，看上去“小标题像正文一样没有正常显示” */
   :global(h1),
   :global(h2),
   :global(h3) {
     font-family: var(--font-serif);
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.4;
   }
 
