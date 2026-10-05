@@ -1,7 +1,7 @@
 ---
 /**
  * 标签云：字号按标签出现次数映射，上限硬性封顶。
- * 供首页侧栏与将来的 /tags 页共用。
+ * 供首页侧栏与标签页共用；每个标签链到 /tags/<标签>/ 落地页。
  */
 interface Props {
   /** 标签及其文章数，按期望展示顺序传入（一般已按数量降序） */
@@ -32,14 +32,15 @@ const tags = items.map((t) => {
 <div class="tag-cloud">
   {
     tags.map((t) => (
-      <span
+      <a
         class="tag"
+        href={`/tags/${encodeURIComponent(t.name)}/`}
         style={`font-size:${t.fontSize.toFixed(3)}rem`}
         title={`${t.name} · ${t.count} 篇`}
       >
         {t.name}
         <span class="sr-only">（{t.count} 篇）</span>
-      </span>
+      </a>
     ))
   }
 </div>
@@ -64,6 +65,21 @@ const tags = items.map((t) => {
     color: var(--muted);
     background: color-mix(in srgb, var(--accent) 6%, transparent);
     font-size: 0.75rem;
+    text-decoration: none;
+    transition:
+      color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease);
+  }
+  .tag:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tag {
+      transition: none;
+    }
   }
   /* 数量已由字号表达，但读屏软件读不出字号，所以保留一份纯文本 */
   .sr-only {

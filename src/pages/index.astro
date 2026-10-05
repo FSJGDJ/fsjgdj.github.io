@@ -32,7 +32,13 @@ const runDays = Math.max(
 const pathname = Astro.url.pathname;
 ---
 
-<Layout title="首页" wide panel={false} drift>
+<Layout
+  title="首页"
+  description={`${siteConfig.siteName}：${siteConfig.description}`}
+  wide
+  panel={false}
+  drift
+>
   <script is:inline>
     // 进场动画前置标记：JS 可用时才隐藏待入场元素，避免无 JS 时内容不可见
     document.documentElement.classList.add("js");

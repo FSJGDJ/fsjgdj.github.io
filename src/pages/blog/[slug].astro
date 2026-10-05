@@ -20,9 +20,29 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
 // 与首页卡片同一口径的阅读时长（正文自动统计）
 const { minutes: readingTime } = getPostStats(post.body ?? "");
+
+// 上一篇 / 下一篇：按发布时间倒序的全站序列里取相邻两篇
+const all = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const idx = all.findIndex((p) => p.id === post.id);
+// 序列是「新 → 旧」：idx-1 更新（上一篇），idx+1 更旧（下一篇）
+const newer = idx > 0 ? all[idx - 1] : undefined;
+const older = idx >= 0 && idx < all.length - 1 ? all[idx + 1] : undefined;
+const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
 ---
 
-<Layout title={post.data.title} articleWide>
+<Layout
+  title={post.data.title}
+  description={post.data.description}
+  ogType="article"
+  progress
+  articleWide
+>
+  <Fragment slot="head">
+    <meta property="article:published_time" content={post.data.pubDate.toISOString()} />
+    {post.data.tags.map((tag) => <meta property="article:tag" content={tag} />)}
+  </Fragment>
   <article class="post">
     <a href="/" class="back">← 返回首页</a>
     <h1>{post.data.title}</h1>
@@ -35,7 +55,9 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
       post.data.tags.length > 0 && (
         <div class="tags">
           {post.data.tags.map((tag) => (
-            <span class="tag">{tag}</span>
+            <a class="tag" href={tagHref(tag)}>
+              {tag}
+            </a>
           ))}
         </div>
       )
@@ -58,6 +80,33 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     <div class="content">
       <Content />
     </div>
+
+    {
+      (newer || older) && (
+        <nav class="post-nav" aria-label="上一篇 / 下一篇">
+          {newer ? (
+            <a class="post-nav-item prev" href={`/blog/${newer.id}/`}>
+              <span class="post-nav-label">← 上一篇</span>
+              <span class="post-nav-title">{newer.data.title}</span>
+            </a>
+          ) : (
+            <span class="post-nav-item empty" />
+          )}
+          {older ? (
+            <a class="post-nav-item next" href={`/blog/${older.id}/`}>
+              <span class="post-nav-label">下一篇 →</span>
+              <span class="post-nav-title">{older.data.title}</span>
+            </a>
+          ) : (
+            <span class="post-nav-item empty" />
+          )}
+        </nav>
+      )
+    }
+
+    <p class="back-home">
+      <a href="/">← 返回首页</a>
+    </p>
   </article>
 
   {/* 桌面目录通过命名插槽渲染到 glass-panel 之外，
@@ -392,6 +441,99 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
     border: 1px solid var(--border);
     color: var(--muted);
     background: color-mix(in srgb, var(--accent) 6%, transparent);
+    text-decoration: none;
+    transition:
+      color var(--dur-base) var(--ease),
+      border-color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease);
+  }
+  .tag:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tag {
+      transition: none;
+    }
+  }
+
+  /* 上一篇 / 下一篇：两列等宽，窄屏堆叠。
+     只用 grid 的两列，不要 flex + 宽百分比：两列内容长度天然不等，
+     均分才不会出现「下一篇」被长标题挤到换行 */
+  .post-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-top: 3rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--border);
+  }
+  .post-nav-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--card) 55%, transparent);
+    text-decoration: none;
+    transition:
+      border-color var(--dur-base) var(--ease),
+      background-color var(--dur-base) var(--ease);
+  }
+  .post-nav-item:not(.empty):hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .post-nav-item.empty {
+    border-color: transparent;
+    background: none;
+  }
+  .post-nav-item.next {
+    text-align: right;
+  }
+  .post-nav-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .post-nav-title {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    color: var(--text);
+    /* 标题长时最多两行，避免单篇文章把导航条撑得很高 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .post-nav-item:not(.empty):hover .post-nav-title {
+    color: var(--accent);
+  }
+  @media (max-width: 560px) {
+    .post-nav {
+      grid-template-columns: 1fr;
+    }
+    .post-nav-item.next {
+      text-align: left;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .post-nav-item {
+      transition: none;
+    }
+  }
+
+  .back-home {
+    margin: 1.6rem 0 0;
+  }
+  .back-home a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-home a:hover {
+    color: var(--accent);
   }
 
   /* 目录：窄屏折叠（默认），宽屏右侧 sticky */
@@ -752,11 +894,17 @@ const { minutes: readingTime } = getPostStats(post.body ?? "");
       transition: none;
     }
   }
+  /* 窄屏时表格会挤爆容器：把 table 变成块级并开横向滚动。
+     内部仍然是 table 布局（thead/tbody 会被包进匿名表格盒），只是外层可滚 */
   .content :global(table) {
+    display: block;
     border-collapse: collapse;
     width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
     margin: 1.2rem 0;
     font-size: 0.9rem;
+    -webkit-overflow-scrolling: touch;
   }
   .content :global(th),
   .content :global(td) {

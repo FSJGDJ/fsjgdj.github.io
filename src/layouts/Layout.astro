@@ -1,6 +1,14 @@
 ---
 interface Props {
   title: string;
+  /** meta description 与 OG 描述；缺省用站点描述 */
+  description?: string;
+  /** OG 类型：文章页传 article，其余 website */
+  ogType?: "website" | "article";
+  /** 是否显示顶部阅读进度条（文章页用） */
+  progress?: boolean;
+  /** 是否禁止收录（404 等页面用） */
+  noindex?: boolean;
   /** 首页等页面可加宽显示区域 */
   wide?: boolean;
   /** 文章页：更宽的正文区 */
@@ -10,9 +18,27 @@ interface Props {
   /** 是否启用背景漂移光斑（仅首屏类页面开启） */
   drift?: boolean;
 }
-const { title, wide, articleWide, panel = true, drift = false } = Astro.props;
+const {
+  title,
+  description = siteConfig.description,
+  ogType = "website",
+  progress = false,
+  noindex = false,
+  wide,
+  articleWide,
+  panel = true,
+  drift = false,
+} = Astro.props;
 const year = new Date().getFullYear();
 import { siteConfig } from "../config";
+
+// 分享卡片与 canonical 需要绝对 URL：astro.config 里的 site 优先，缺失时退回当前地址
+const base = Astro.site ?? Astro.url;
+const canonical = new URL(Astro.url.pathname, base);
+// 分享图暂用首屏背景图（自动生成标题卡片图是后续轮次的事）
+const ogImage = new URL("/images/bg.jpg", base);
+const pageTitle =
+  title === siteConfig.siteName ? title : `${title} · ${siteConfig.siteName}`;
 ---
 
 <!doctype html>
@@ -21,9 +47,45 @@ import { siteConfig } from "../config";
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title} · 我的博客</title>
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={siteConfig.name} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111114" />
+
+    <!-- 分享卡片（微信 / Telegram / X 等读取 OG） -->
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={siteConfig.siteName} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1920" />
+    <meta property="og:image:height" content="1280" />
+    <meta property="og:image:alt" content={siteConfig.siteName} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- 文章页可往这里补 og:article:* 等页面专属标签 -->
+    <slot name="head" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="alternate" type="application/rss+xml" title="我的博客" href="/rss.xml" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={siteConfig.siteName}
+      href="/rss.xml"
+    />
+    <!-- 霞鹜文楷 Lite：97 个 unicode-range 分片，浏览器只下载本页用到的几片 -->
+    <link rel="stylesheet" href="/fonts/lxgw/lxgw.css" />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/lxgw/lxgwwenkailite-regular-subset-118.woff2"
+      crossorigin
+    />
     <!-- 主题初始化：在任何内容渲染前应用，防止刷新闪烁 (FOUC) -->
     <script is:inline>
       (function () {
@@ -38,6 +100,13 @@ import { siteConfig } from "../config";
   </head>
   <body>
     {
+      progress && (
+        <div class="read-progress" aria-hidden="true">
+          <span class="read-progress-fill" />
+        </div>
+      )
+    }
+    {
       drift && (
         <div class="bg-drift" aria-hidden="true">
           <span class="blob b1" />
@@ -48,10 +117,10 @@ import { siteConfig } from "../config";
     }
     <header class="site-header">
       <div class="header-inner">
-        <a href="/" class="logo">fsjdg的空间</a>
+        <a href="/" class="logo">{siteConfig.siteName}</a>
         <nav>
           <a href="/">首页</a>
-          <a href="/archive/">目录</a>
+          <a href="/archive/">归档</a>
           <a href="https://github.com/FSJGDJ" target="_blank" rel="noopener"
             >GitHub</a
           >
@@ -99,7 +168,7 @@ import { siteConfig } from "../config";
     <slot name="toc" />
     <footer class="site-footer">
       <p>
-        © {year} 我的博客 · <a href="https://github.com/FSJGDJ" target="_blank"
+        © {year} {siteConfig.siteName} · <a href="https://github.com/FSJGDJ" target="_blank"
           rel="noopener">GitHub</a
         > · <a href="/rss.xml">RSS</a>
         {siteConfig.email && (
@@ -155,6 +224,38 @@ import { siteConfig } from "../config";
         updateIcon();
       })();
     </script>
+
+    <!-- 阅读进度条：顶部 2px 细线按全文滚动比例填充。
+         放在 glass-panel 之外——面板的 backdrop-filter 会劫持后代 fixed 定位 -->
+    {
+      progress && (
+        <script>
+          (function () {
+            const fill = document.querySelector<HTMLElement>(".read-progress-fill");
+            if (!fill) return;
+            let ticking = false;
+            function update() {
+              const doc = document.documentElement;
+              const max = doc.scrollHeight - window.innerHeight;
+              const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+              fill.style.transform = `scaleX(${p})`;
+              ticking = false;
+            }
+            window.addEventListener(
+              "scroll",
+              () => {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(update);
+              },
+              { passive: true },
+            );
+            window.addEventListener("resize", update);
+            update();
+          })();
+        </script>
+      )
+    }
   </body>
 </html>
 
@@ -176,12 +277,16 @@ import { siteConfig } from "../config";
     --dur-base: 0.2s;
     --dur-slow: 0.3s;
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --font-sans:
+      system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     --font-mono:
       "JetBrains Mono", "Cascadia Code", Consolas, "SFMono-Regular",
       Menlo, monospace;
+    /* 标题字体：霞鹜文楷 Lite（自托管分包，public/fonts/lxgw）
+       后面几个是兜底——字体没加载完时先落系统衬线，不会出现无衬线的空档 */
     --font-serif:
-      "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong",
-      "SimSun", serif;
+      "LXGW WenKai Lite", "Source Han Serif SC", "Noto Serif SC", "Songti SC",
+      "STSong", "SimSun", serif;
   }
 
   /* 系统暗色模式自动切换（未手动选择时生效） */
@@ -213,6 +318,38 @@ import { siteConfig } from "../config";
 
   * {
     box-sizing: border-box;
+  }
+
+  /* 细圆角滚动条：Windows 默认宽滚动条会把毛玻璃质感毁掉。
+     标准属性给 Firefox / 新版 Chromium，::-webkit-* 给旧版 Chromium 与 Safari。
+     两者同时存在时浏览器优先采用标准属性，不会打架 */
+  :global(html) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+  }
+  :global(::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
+  }
+  :global(::-webkit-scrollbar-track) {
+    background: transparent;
+  }
+  :global(::-webkit-scrollbar-thumb) {
+    background: color-mix(in srgb, var(--muted) 38%, transparent);
+    /* 三像素透明边框配合 content-box，让滑块变成细胶囊 */
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  :global(::-webkit-scrollbar-thumb:hover) {
+    background: color-mix(in srgb, var(--accent) 60%, transparent);
+    background-clip: content-box;
+  }
+
+  /* 选中文字用主题色半透明底，默认的蓝块在暖色背景上很跳 */
+  :global(::selection) {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--text);
   }
 
   html {
@@ -326,26 +463,47 @@ import { siteConfig } from "../config";
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family:
-      system-ui,
-      -apple-system,
-      "PingFang SC",
-      "Microsoft YaHei",
-      sans-serif;
+    font-family: var(--font-sans);
     line-height: 1.8;
+    /* 中英文/数字与汉字之间自动加空隙（"用 ffmpeg 和 Node.js" 这类混排会明显精致）。
+       渐进增强：目前 Firefox / Safari 已支持，Chromium 尚未实现，不支持的老浏览器直接忽略 */
+    text-autospace: normal;
     display: flex;
     min-height: 100vh;
     flex-direction: column;
   }
 
-  /* 标题统一衬线字体，正文保持无衬线，形成中西文混排的杂志感。
+  /* 阅读进度条：只有 transform 在动，走合成层，不触发布局 */
+  .read-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    /* 压在 sticky 头部（z-index 10）之上 */
+    z-index: 20;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    pointer-events: none;
+  }
+  .read-progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    will-change: transform;
+  }
+
+  /* 标题统一用标题字体（霞鹜文楷），正文保持无衬线，形成中西文混排的杂志感。
+     字重用 500：自托管只装了 Regular 一个字重，500 会直接落到 400，
+     不会像 600 那样被浏览器合成 faux-bold 把楷体笔画糊粗。
      必须 :global——markdown 渲染出的标题不带本组件的 scoped 属性，
      否则会回退成 body 同款无衬线，看上去“小标题像正文一样没有正常显示” */
   :global(h1),
   :global(h2),
   :global(h3) {
     font-family: var(--font-serif);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.4;
   }
 

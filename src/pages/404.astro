@@ -1,0 +1,106 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getCollection } from "astro:content";
+
+// GitHub Pages 找不到 /404.html 时会直接用它兜底，给一张同风格的页面
+// 比默认白页好；顺带带三篇最近文章，给掉进坑的人一条路
+const latest = (await getCollection("blog"))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 3);
+---
+
+<Layout title="页面不存在" description="你访问的页面不存在或已被移动。" noindex>
+  <section class="notfound">
+    <p class="code">404</p>
+    <h1>这里什么都没有</h1>
+    <p class="hint">
+      页面可能已被移动或删除。也可以从 <a href="/">首页</a> 或 <a href="/archive/">归档</a> 找起。
+    </p>
+    {
+      latest.length > 0 && (
+        <div class="latest">
+          <p class="latest-title">最近更新</p>
+          <ul>
+            {latest.map((post) => (
+              <li>
+                <a href={`/blog/${post.id}/`}>
+                  <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+                  <span>{post.data.title}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+  </section>
+</Layout>
+
+<style>
+  .notfound {
+    text-align: center;
+    padding: 2rem 0 1rem;
+  }
+  .code {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 4.5rem;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.85;
+  }
+  .notfound h1 {
+    margin: 0.8rem 0 0.4rem;
+    font-size: 1.6rem;
+  }
+  .hint {
+    margin: 0 auto;
+    max-width: 34rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .hint a {
+    color: var(--accent);
+  }
+
+  .latest {
+    margin: 2.2rem auto 0;
+    max-width: 34rem;
+    text-align: left;
+  }
+  .latest-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .latest ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .latest li {
+    border-bottom: 1px solid var(--border);
+  }
+  .latest li:last-child {
+    border-bottom: none;
+  }
+  .latest a {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.55rem 0.2rem;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .latest a:hover span {
+    color: var(--accent);
+  }
+  .latest time {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+</style>

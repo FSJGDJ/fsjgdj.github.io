@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { getCollection } from "astro:content";
+import { siteConfig } from "../config";
 
 const posts = (await getCollection("blog")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
@@ -16,9 +17,9 @@ for (const post of posts) {
 const years = [...byYear.keys()].sort((a, b) => b - a);
 ---
 
-<Layout title="目录">
+<Layout title="归档" description={`${siteConfig.siteName}的全部文章归档，共 ${posts.length} 篇，按发布时间倒序。`}>
   <section class="hero">
-    <h1>目录</h1>
+    <h1>归档</h1>
     <p class="subtitle">共 {posts.length} 篇文章</p>
   </section>
 

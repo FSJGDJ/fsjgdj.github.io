@@ -1,6 +1,11 @@
 // 站点个人信息配置 —— 头像、昵称、个人定位由你自己填写
 // 改完这个文件即可，不用动组件代码
 export const siteConfig = {
+  /** 站名：<title> 后缀、页脚、RSS、OG 站点名统一用它 */
+  siteName: "fsjdg的空间",
+  /** 站点描述：首页/归档/标签页的 meta description 与 OG 描述兜底 */
+  description:
+    "记录学习与思考：Windows 内核驱动、字符视频创作、agentic retrieval 与新技术范式笔记。",
   // 昵称（hero 区大标题）
   name: "FSJDG",
   // 一句话个人定位（hero 区副标题）

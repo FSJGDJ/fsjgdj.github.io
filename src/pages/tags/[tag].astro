@@ -1,0 +1,172 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getCollection } from "astro:content";
+import { getPostStats } from "../../utils/postStats";
+import TagCloud from "../../components/TagCloud.astro";
+import { siteConfig } from "../../config";
+
+// 每个标签一条静态路由。标签里有中文（检索 / 创作 / 随笔…），
+// params 用编码后的字符串，Astro 生成的文件名也会自动编码，链接侧用 encodeURIComponent 对齐
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+  const map = new Map<string, typeof posts>();
+  for (const post of posts) {
+    for (const tag of post.data.tags ?? []) {
+      if (!map.has(tag)) map.set(tag, []);
+      map.get(tag)!.push(post);
+    }
+  }
+  return [...map.entries()].map(([tag, list]) => ({
+    params: { tag },
+    props: { tag, posts: list },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+
+// 页内统一按时间倒序
+posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+// 同标签的其它文章（侧栏）
+const tagCount = new Map<string, number>();
+for (const post of await getCollection("blog")) {
+  for (const t of post.data.tags ?? [])
+    tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+}
+const allTags = [...tagCount.entries()]
+  .map(([name, count]) => ({ name, count }))
+  .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+const title = `标签：${tag}`;
+---
+
+<Layout title={title} description={`${siteConfig.siteName} 里标记为「${tag}」的文章，共 ${posts.length} 篇。`}>
+  <section class="hero">
+    <p class="crumb"><a href="/">首页</a> / <a href="/archive/">归档</a> / 标签</p>
+    <h1>{title}</h1>
+    <p class="subtitle">共 {posts.length} 篇文章</p>
+  </section>
+
+  <ul class="post-list">
+    {
+      posts.map((post) => {
+        const stats = getPostStats(post.body ?? "");
+        return (
+          <li>
+            <a class="post-card" href={`/blog/${post.id}/`}>
+              <div class="post-meta">
+                <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
+                <span class="dot">·</span>
+                <span>{stats.words.toLocaleString("en-US")} 字</span>
+                <span class="dot">·</span>
+                <span>{stats.minutes} 分钟</span>
+              </div>
+              <h2>{post.data.title}</h2>
+              <p>{post.data.description}</p>
+            </a>
+          </li>
+        );
+      })
+    }
+  </ul>
+
+  <section class="tag-panel" aria-label="全部标签">
+    <p class="tag-panel-title">全部标签</p>
+    <TagCloud items={allTags} />
+  </section>
+</Layout>
+
+<style>
+  .hero {
+    margin-bottom: 2rem;
+  }
+  .crumb {
+    margin: 0 0 0.6rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .crumb a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .crumb a:hover {
+    color: var(--accent);
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    margin: 0 0 0.4rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .post-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .post-list li + li {
+    margin-top: 0.8rem;
+  }
+  .post-card {
+    display: block;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--card) 55%, transparent);
+    text-decoration: none;
+    color: var(--text);
+    transition:
+      border-color var(--dur-base) var(--ease),
+      transform var(--dur-base) var(--ease);
+  }
+  .post-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+  }
+  .post-card h2 {
+    margin: 0.4rem 0 0.3rem;
+    font-size: 1.25rem;
+  }
+  .post-card:hover h2 {
+    color: var(--accent);
+  }
+  .post-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .tag-panel {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .tag-panel-title {
+    margin: 0 0 0.6rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .post-card {
+      transition: none;
+    }
+    .post-card:hover {
+      transform: none;
+    }
+  }
+</style>
