@@ -13,3 +13,5 @@
 - 本机网络：GitHub（仓库与 releases）不可达；npm 走 `registry.npmmirror.com` 镜像；unpkg / jsDelivr / npmmirror 的 https 走 `http_proxy` 可达，Node 22 的 `fetch` 也能走该代理。因此"下载源字体/Tarball"类方案要优先选 npm 镜像或 CDN 源。
 - Astro 入口是 `node_modules/astro/bin/astro.mjs`（不是 astro.js）；`npx astro` 在本机 PATH 不可靠，直接用托管 node 跑这个文件。
 - 验证产物时的两个坑：① 页面样式会被 Astro 抽离成 `dist/_astro/*.css`，只 grep HTML 会误判"样式没生效"；② Astro 会往标签属性里注入 `data-astro-cid-*`，`grep 'class="x">'` 这类精确匹配会漏。
+- 博客文章写作口吻：**第一人称**（用户 2026-10-08 明确要求"以我的视角写，不要照抄原文"）。课程/作业/踩坑类文章一律用"我"的叙述视角，小标题也带"我"，不要用"本文/读者/我们"这类说明文或集体称谓；引用外部资料时才用客观陈述。
+- 新文章 frontmatter 只填 `title` / `description` / `pubDate` / `tags`，字符串用单引号；**不要写 `<!-- more -->`**（全站无此约定，首页摘要取 `description`）。
