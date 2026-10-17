@@ -15,8 +15,23 @@ if (!post) return Astro.redirect("/");
 
 const { Content, headings } = await render(post);
 
-// 目录只收 h2 / h3（第一版：扁平列表）
+// 目录只收 h2 / h3（depth-2 是一级章节，depth-3 是其子条目）
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+
+// 按「一级章节 → 子条目」归并成两层，供目录折叠交互使用。
+// depth 信息来自构建期解析，顺序即正文顺序；孤儿 depth-3（前面没有 h2）
+// 会自成一个一级章节，不会漏掉也不会错位
+const tocTree = toc.reduce<
+  { hash: string; text: string; children: { hash: string; text: string }[] }[]
+>((acc, h) => {
+  const item = { hash: `#${h.slug}`, text: h.text };
+  if (h.depth === 2 || acc.length === 0) {
+    acc.push({ ...item, children: [] });
+  } else {
+    acc[acc.length - 1].children.push(item);
+  }
+  return acc;
+}, []);
 
 // 与首页卡片同一口径的阅读时长（正文自动统计）
 const { minutes: readingTime } = getPostStats(post.body ?? "");
@@ -68,9 +83,18 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
         <details class="toc toc-mobile">
           <summary class="toc-title">目录</summary>
           <ol>
-            {toc.map((h) => (
-              <li class={`depth-${h.depth}`}>
-                <a href={`#${h.slug}`}>{h.text}</a>
+            {tocTree.map((sec) => (
+              <li class="depth-2">
+                <a href={sec.hash} aria-expanded="false">{sec.text}</a>
+                {sec.children.length > 0 && (
+                  <ol class="toc-sub" aria-hidden="true" inert>
+                    {sec.children.map((sub) => (
+                      <li class="depth-3">
+                        <a href={sub.hash}>{sub.text}</a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </li>
             ))}
           </ol>
@@ -116,9 +140,18 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
       <aside class="toc toc-desktop" aria-label="文章目录">
         <p class="toc-title">目录</p>
         <ol>
-          {toc.map((h) => (
-            <li class={`depth-${h.depth}`}>
-              <a href={`#${h.slug}`}>{h.text}</a>
+          {tocTree.map((sec) => (
+            <li class="depth-2">
+              <a href={sec.hash} aria-expanded="false">{sec.text}</a>
+              {sec.children.length > 0 && (
+                <ol class="toc-sub" aria-hidden="true" inert>
+                  {sec.children.map((sub) => (
+                    <li class="depth-3">
+                      <a href={sub.hash}>{sub.text}</a>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </li>
           ))}
         </ol>
@@ -155,6 +188,112 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
     // 滚动驱动的激活计算：取“顶部参考线”之上的最后一个标题，
     // 相比 IntersectionObserver 不会出现章节间隙期间高亮滞留或跳变
     const HEADER_OFFSET = 96; // sticky 头部高度 + 余量
+
+    // ---- 折叠：按「一级标题（depth-2）」所在位置展开对应章节的子条目 ----
+    // 一级条目在 DOM 上是 .toc li.depth-2 > a，它的下一个兄弟元素就是子级 <ol>；
+    // 移动端与桌面端两份目录指向同一批锚点，按 hash 归并成一份逻辑章节，
+    // 顺序沿用文档顺序（即正文顺序），可直接顺序比较位置
+    type Section = {
+      hash: string;
+      el: HTMLElement;
+      links: HTMLAnchorElement[];
+      subs: HTMLElement[];
+      childHashes: Set<string>;
+    };
+    const sections: Section[] = [];
+    const sectionByHash = new Map<string, Section>();
+    document
+      .querySelectorAll<HTMLAnchorElement>(".toc li.depth-2 > a[href^='#']")
+      .forEach((link) => {
+        const el = document.getElementById(
+          decodeURIComponent(link.hash.slice(1)),
+        );
+        if (!el) return;
+        let sec = sectionByHash.get(link.hash);
+        if (!sec) {
+          sec = {
+            hash: link.hash,
+            el,
+            links: [],
+            subs: [],
+            childHashes: new Set(),
+          };
+          sectionByHash.set(link.hash, sec);
+          sections.push(sec);
+        }
+        sec.links.push(link);
+        const sub = link.nextElementSibling as HTMLElement | null;
+        if (sub?.classList.contains("toc-sub")) {
+          sec.subs.push(sub);
+          sub
+            .querySelectorAll<HTMLAnchorElement>("a[href^='#']")
+            .forEach((a) => sec!.childHashes.add(a.hash));
+        }
+      });
+
+    // 折叠容器状态：收起时 data-collapsed 驱动 grid-template-rows: 0fr，
+    // 同时置 aria-hidden + inert —— 后者让子条目退出可聚焦序列，
+    // 键盘用户不会 Tab 进看不见的链接
+    function setSectionOpen(sec: Section, open: boolean) {
+      // aria-expanded 是唯一事实来源：CSS 直接按它决定折叠与否，
+      // 脚本只负责改属性，不额外维护 data-* 状态
+      sec.links.forEach((l) =>
+        l.setAttribute("aria-expanded", open ? "true" : "false"),
+      );
+      // 收起的子条目同时退出无障碍树与可聚焦序列，
+      // 键盘用户不会 Tab 进看不见的链接
+      sec.subs.forEach((sub) => {
+        if (open) {
+          // 展开前实测内容高度写进 --toc-sub-h：
+          // max-height 从 0 过渡到这个精确值，时长与内容高度匹配
+          sub.style.setProperty("--toc-sub-h", sub.scrollHeight + "px");
+          sub.removeAttribute("aria-hidden");
+          sub.removeAttribute("inert");
+        } else {
+          sub.setAttribute("aria-hidden", "true");
+          sub.setAttribute("inert", "");
+        }
+      });
+    }
+
+    // 当前章节：参考线之上最后一个一级标题。
+    // 只看一级标题的位置，与子条目无关；页面顶部尚未进入任何章节时取第一个，
+    // 保证「首次加载也有且只有一个章节展开」，不会全收起
+    function currentSection(): Section | null {
+      if (sections.length === 0) return null;
+      let cur = sections[0];
+      for (const s of sections) {
+        if (s.el.getBoundingClientRect().top <= HEADER_OFFSET) cur = s;
+        else break;
+      }
+      return cur;
+    }
+
+    // 折叠改变目录高度后，把当前激活项滚回目录可视区。
+    // 只改目录容器自身的 scrollTop（不碰 window），避免连带滚动整页
+    function keepActiveVisible() {
+      document.querySelectorAll<HTMLElement>(".toc-desktop").forEach((box) => {
+        const active = box.querySelector<HTMLElement>("a.active");
+        if (!active) return;
+        const c = box.getBoundingClientRect();
+        const i = active.getBoundingClientRect();
+        if (i.top < c.top + 8) box.scrollTop -= c.top + 8 - i.top;
+        else if (i.bottom > c.bottom - 8) box.scrollTop += i.bottom - c.bottom + 8;
+      });
+    }
+
+    function syncSections() {
+      const cur = currentSection();
+      sections.forEach((s) => setSectionOpen(s, s === cur));
+      // 高度变化是过渡动画，跑完再校正一次可视区；单例绑定，不会重复注册
+      const opening = cur?.subs[0];
+      if (opening && !opening.dataset.watchEnd) {
+        opening.dataset.watchEnd = "1";
+        opening.addEventListener("transitionend", keepActiveVisible);
+      }
+      keepActiveVisible();
+    }
+
     let ticking = false;
     function computeActive() {
       let current: string | null = null;
@@ -171,6 +310,7 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
         current = pairs[pairs.length - 1].hash;
       }
       setActive(current);
+      syncSections();
     }
     window.addEventListener(
       "scroll",
@@ -184,7 +324,27 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
       },
       { passive: true },
     );
+    // 初始化：先临时关掉过渡，避免脚本尚未执行的那一帧「全部展开」，
+    // 收到「仅当前章节展开」时出现动画闪烁（同步完成后下一帧恢复过渡）
+    const subContainers = sections.flatMap((s) => s.subs);
+    subContainers.forEach((sub) => (sub.style.transition = "none"));
+
     computeActive();
+
+    // 带 hash 直接访问 / 刷新：浏览器的片段定位与脚本执行顺序不保证，
+    // 若 hash 命中的章节此刻还没到参考线位置，按 hash 所属章节先展开一次，
+    // 随后第一次 scroll 会按实际位置接管
+    const target = sections.find(
+      (s) => s.hash === location.hash || s.childHashes.has(location.hash),
+    );
+    if (target) {
+      sections.forEach((s) => setSectionOpen(s, s === target));
+      keepActiveVisible();
+    }
+
+    requestAnimationFrame(() =>
+      subContainers.forEach((sub) => (sub.style.transition = "")),
+    );
   })();
 
   // 正文图片 Lightbox：点击放大；遮罩/关闭按钮/ESC 退出；
@@ -641,10 +801,34 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
+  /* 子条目折叠容器（新增层级后唯一的新样式）：
+     ① .toc ol 的竖线与缩进在这里要显式归零，否则嵌套 ol 会多画一条线；
+     ② margin-left:-2px 抵消子链接自身的 -2px，让子条目的文字起始位置
+        与折叠前的扁平列表完全一致（本改动不移动任何条目）；
+     ③ 收起用 max-height:0 + overflow:hidden（子条目始终在 DOM 里，只被裁剪）。
+        这里没用 grid-template-rows:0fr —— 那套写法要求 grid 容器高度确定，
+        而本例容器高度随内容而定，0fr 会被解析成 max-content，一个都收不起来；
+        展开高度取 --toc-sub-h，由脚本按 scrollHeight 实测填入，
+        这样过渡时长与实际内容高度严格匹配，不会出现「快弹完再空跑一会儿」。
+        折叠状态直接读一级链接的 aria-expanded —— 模板里初始为 "false"，
+        脚本只改这一个属性，样式与无障碍语义天然不会打架。 */
+  .toc ol.toc-sub {
+    max-height: 0;
+    overflow: hidden;
+    border-left: none;
+    margin-left: -2px;
+    /* 高度变化比悬停类动效幅度大，用 --dur-slow(0.3s) 才不至于显得急 */
+    transition: max-height var(--dur-slow) var(--ease);
+  }
+  .toc li.depth-2 > a[aria-expanded="true"] + ol.toc-sub {
+    max-height: var(--toc-sub-h, 30rem);
+  }
+
   /* 减弱动态效果：目录的所有过渡直接跳过 */
   @media (prefers-reduced-motion: reduce) {
     .toc a,
-    .toc-title::after {
+    .toc-title::after,
+    .toc ol.toc-sub {
       transition: none;
     }
   }
