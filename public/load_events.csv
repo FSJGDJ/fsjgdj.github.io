@@ -1,0 +1,55 @@
+timestamp,EventType,ServiceName,ImagePath,file_hash,SignatureStatus,DriverState
+2026-05-13 20:30:56,Service_Install,Intel(R) PRO/1000 PCI Express Network Connection Driver I,c:\windows\system32\drivers\e1i65x64.sys,a8984c47a2bd8d3375a2d2f21ad167fa2773fd957a947c4e67bfa96cad3683ea,Valid,Installed
+2026-05-13 20:31:04,Service_Install,Microsoft Edge Elevation Service (MicrosoftEdgeElevationService),c:\program files (x86)\microsoft\edge\application\92.0.902.67\elevation_service.exe,,Unknown,Installed
+2026-05-13 20:32:29,Service_Install,Printer Extensions and Notifications,c:\windows\system32\svchost.exe -k print,,Unknown,Installed
+2026-05-13 20:37:20,Service_Install,VMware VMCI Bus Driver,c:\windows\system32\drivers\vmci.sys,e9a45bddb38925ded64b874644f58a6e8e87a10614ed7a34b9bdcce6bd3d46c6,Valid,Installed
+2026-05-13 20:55:35,Service_Install,VMware Alias Manager and Ticket Service,c:\program files\vmware\vmware tools\vmware vgauth\vgauthservice.exe,b0145210b236ee2f001d5a9b14a70541740e8f6154108b1bdcf9478702ab020c,Valid,Installed
+2026-05-13 20:55:35,Service_Install,vSockets Virtual Machine Communication Interface Sockets driver,c:\windows\system32\drivers\vsock.sys,dfdb2166d3010a1e7ccfdc38f0b1524fdc4b79b17b06093b7f9820b637d28343,Valid,Installed
+2026-05-13 20:55:38,Service_Install,VMware USB Pointing Device,c:\windows\system32\drivers\vmusbmouse.sys,68a3446b27a4405ce614d902de165c16991b4018d5d59d944d97a3cbbf886c78,Valid,Installed
+2026-05-13 20:55:38,Service_Install,VMware Pointing Device,c:\windows\system32\drivers\vmmouse.sys,f2aca0ccda94bf2aff94168f8b7ae4e2b23345c2ec57df6e33992a0f4734cf7c,Valid,Installed
+2026-05-13 20:55:38,Service_Install,Memory Control Driver,c:\windows\system32\drivers\vmmemctl.sys,7d56db3c4794bb9b78e9ddcdce0b2972878f0a3e17794025f5485d628a116253,Valid,Installed
+2026-05-13 20:55:39,Service_Install,VMware Host Guest Client Redirector,c:\windows\system32\drivers\vmhgfs.sys,f68ec54e02953a4af4c0f1cda713dbb77a7ae643115b067ac23b19f8f2925c01,Valid,Installed
+2026-05-13 20:55:39,Service_Install,VMware Physical Disk Helper,c:\windows\system32\drivers\vmrawdsk.sys,98efa50c5cb8640a305af785e2b21affba3890aa98b79ef3eebb8de1626c11c7,Valid,Installed
+2026-05-13 20:55:41,Service_Install,vm3dmp_loader,c:\windows\system32\drivers\vm3dmp_loader.sys,d0d26649251013e7ac0f92a1b06f44de8ab3c0a6ba9f334bf6ebe9422d4dcf91,Valid,Installed
+2026-05-13 20:55:41,Service_Install,vm3dmp-debug,c:\windows\system32\drivers\vm3dmp-debug.sys,eda6d1b7823e0192c0dba1e67934c1f238c061a033956640939b23c383f1caf0,Valid,Installed
+2026-05-13 20:55:41,Service_Install,VMware SVGA Helper Service,c:\windows\system32\vm3dservice.exe,41dce909cc6e2a988727a62de830cafb7d0d9b404e2488459d5f8da242e3341b,Valid,Installed
+2026-05-13 20:55:41,Service_Install,vm3dmp-stats,c:\windows\system32\drivers\vm3dmp-stats.sys,4689ae8bcbb010044cbd7f4613c29a3937b933022a470bf66f321a470b37cd00,Valid,Installed
+2026-05-13 20:55:41,Service_Install,vm3dmp,c:\windows\system32\drivers\vm3dmp.sys,bbef23d6ffba937ff13ddcf8e5b9f2f3f85e5ee2ba3e3c92883a71b79ea00178,Valid,Installed
+2026-05-13 20:55:42,Service_Install,VMware Tools,c:\program files\vmware\vmware tools\vmtoolsd.exe,fa89670df7e350d173a8b233d7f00bdbcf86f75041f76fb55ef29c2b996c0b43,Valid,Installed
+2026-05-13 20:55:44,Service_Install,VMware Snapshot Provider,c:\windows\system32\dllhost.exe \processid:{1002dd53-341b-4e39-a851-15d0faa2b0ea},,Unknown,Installed
+2026-05-13 21:21:33,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.21.2.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,,Unknown,Installed
+2026-05-15 20:01:25,Service_Install,Microsoft Defender Core ??,c:\programdata\microsoft\windows defender\platform\4.18.26030.3011-0\mpdefendercoreservice.exe,,Unknown,Installed
+2026-05-15 20:01:26,Service_Install,KslD,c:\windows\system32\drivers\wd\ksld.sys,e845e428a350ea8adef1b417ac2a48347771270cb060bb6c03dbea164357ccca,Valid,Installed
+2026-05-15 20:10:22,Service_Install,MpKsl06c37ad4,c:\programdata\microsoft\windows defender\definition updates\{a849b0ec-d2e3-4378-b437-1223ce1265f9}\mpksldrv.sys,,Unknown,Installed
+2026-05-16 20:00:05,Service_Install,Microsoft Update Health Service,c:\program files\microsoft update health tools\uhssvc.exe,4b1becda7c202198bb33fe5b750c1db5ba3b7d43554a4b557c342ac6e138a57f,Valid,Installed
+2026-05-17 22:18:16,Service_Install,wsftprm,c:\users\fsjdg\desktop\wsftprm.sys,,Unknown,Installed
+2026-05-18 11:43:16,Service_Install,wsftprm,c:\users\fsjdg\desktop\wsftprm.sys,,Unknown,Installed
+2026-05-18 12:38:00,Service_Install,wsftprm,c:\users\fsjdg\desktop\wsftprm.sys,,Unknown,Installed
+2026-05-18 12:50:29,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.21.4.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,,Unknown,Installed
+2026-05-18 13:01:08,Service_Install,wsftprm,c:\users\fsjdg\desktop\wsftprm.sys,,Unknown,Installed
+2026-05-18 13:10:03,Service_Install,wsftprm,c:\users\fsjdg\desktop\wsftprm.sys\wsftprm.sys,,Unknown,Installed
+2026-05-21 17:47:52,Service_Install,KslD,c:\windows\system32\drivers\wd\ksld.sys,e845e428a350ea8adef1b417ac2a48347771270cb060bb6c03dbea164357ccca,Valid,Installed
+2026-05-24 11:54:55,Service_Install,RTCore64,c:\users\fsjdg\desktop\rtcore64.sys,,Unknown,Installed
+2026-05-24 12:01:08,Service_Install,RTCore64,c:\users\fsjdg\desktop\rtcore64.sys,,Unknown,Installed
+2026-05-24 12:03:58,Service_Install,RTCore64,c:\users\fsjdg\desktop\rtcore64\rtcore64.sys,,Unknown,Installed
+2026-05-24 13:10:40,Service_Install,RTCore,c:\rtcore64\rtcore64.sys,,Unknown,Installed
+2026-05-24 13:14:27,Service_Install,RTCore,c:\users\fsjdg\desktop\rtcore64\rtcore64.sys,,Unknown,Installed
+2026-05-24 13:15:33,Service_Install,RTCore,c:\users\fsjdg\desktop\rtcore64\rtcore64.sys,,Unknown,Installed
+2026-05-24 15:42:45,Service_Install,Visual Studio Installer Elevation Service,c:\program files (x86)\microsoft visual studio\installer\vsinstallerelevationservice.exe,2b3c3a3b3deade4e07e53a828a6e1544c520f7310783f0d33c53343f29d9b51f,Valid,Installed
+2026-05-24 15:45:41,Service_Install,Visual Studio Standard Collector Service 150,c:\program files (x86)\microsoft visual studio\shared\common\diagnosticshub.collection.service\standardcollector.service.exe,c89a275e370d2b02d340ee975a3a38ee82ce7e0648b6d91eba61fc96bbd97337,Valid,Installed
+2026-05-30 12:46:30,Service_Install,BootRepair,c:\users\fsjdg\desktop\bootrepair\bootrepair.sys,,Unknown,Installed
+2026-05-30 14:16:51,Service_Install,BootRepair,c:\users\fsjdg\desktop\bootrepair\bootrepair.sys,,Unknown,Installed
+2026-05-31 13:30:40,Service_Install,BootRepair,c:\users\fsjdg\desktop\bootrepair\bootrepair.sys,,Unknown,Installed
+2026-06-10 20:15:48,Service_Install,KslD,c:\windows\system32\drivers\wd\ksld.sys,e845e428a350ea8adef1b417ac2a48347771270cb060bb6c03dbea164357ccca,Valid,Installed
+2026-06-11 13:37:02,Service_Install,Leviathan,c:\users\fsjdg\desktop\rwdriver\rwdriver.sys,,Unknown,Installed
+2026-06-12 18:05:49,Service_Install,rwdriver,c:\users\fsjdg\desktop\rwdriver\rwdriver.sys,,Unknown,Installed
+2026-07-09 10:07:13,Service_Install,Microsoft WdAiNisDrv ????,c:\windows\system32\drivers\wd\wdainisdrv.sys,8e3056b2db787ca5b13e734543f4c48d15478ab2fe3d727111217b5a047e2655,Valid,Installed
+2026-07-13 16:31:59,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.22.1.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,,Unknown,Installed
+2026-07-20 10:31:58,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.22.2.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,,Unknown,Installed
+2026-08-03 09:32:15,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.22.3.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,,Unknown,Installed
+2026-08-13 15:58:45,Service_Install,KslD,c:\windows\system32\drivers\wd\ksld.sys,e845e428a350ea8adef1b417ac2a48347771270cb060bb6c03dbea164357ccca,Valid,Installed
+2026-08-13 16:00:45,Service_Install,LECOMAx64,c:\users\fsjdg\desktop\lecomax64\lecomax64.sys,0f2dff4116a84241d8cafe534b63454fb4ea26272da8977be03670701ec6631c,Valid,Installed
+2026-08-25 15:34:32,Service_Install,Microsoft PC Manager Service,c:\program files\windowsapps\microsoft.microsoftpcmanager_3.22.4.0_x64__8wekyb3d8bbwe\pcmanager\mspcmanagerservice.exe,2da8c9c927aea28a943f51f3685f82f51a4925c7e167c9d2ff7dfc499aec1205,Valid,Installed
+2026-09-04 08:44:05,Service_Install,Sysmon64,c:\windows\sysmon64.exe,a60aa845457406383277afdead35bd90c7804572b99901d239cc974841df2528,Valid,Installed
+2026-09-04 08:44:05,Service_Install,SysmonDrv,c:\windows\sysmondrv.sys,32cd2906220b65177517e44bb18a4e536d4085d1fed3ff78a577a5a12466cb6a,Valid,Installed
+2026-09-04 08:45:55,Service_Install,KslD,c:\windows\system32\drivers\wd\ksld.sys,e845e428a350ea8adef1b417ac2a48347771270cb060bb6c03dbea164357ccca,Valid,Installed

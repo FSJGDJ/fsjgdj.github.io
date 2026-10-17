@@ -1,0 +1,11 @@
+driver,file_hash,session_id,load_count,in_baseline,ioctl_count,ioctl_rate_per_sec,distinct_ioctl,in_len_max,in_len_mean,out_len_max,out_len_mean,fail_ratio,sensitive_caps
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,1,0,0,64,32000.0,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,2,0,0,64,8000.0,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,3,0,0,64,7111.11,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,4,0,0,64,5333.33,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,5,0,0,64,5333.33,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,6,0,0,64,6400.0,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,7,0,0,64,7111.11,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,8,0,0,64,6400.0,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,9,0,0,64,7111.11,3,600,25.75,4096,328.12,0.0625,self_defined_driver
+TEST.sys,e05e004cbcc70d5e05fbc2a3086a900463ad8edfd7be6124f59ca895640f247a,10,0,0,64,4266.67,3,600,25.75,4096,328.12,0.0625,self_defined_driver
