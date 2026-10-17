@@ -11,6 +11,13 @@ tags: ["Windows", "驱动", "Python", "分析"]
 
 这一周的任务是把它们**归一化成一套统一的特征数据集**：写 `build_features.py` 做转换，写 `validate_dataset.py` 做质量门禁，最后按实验会话划分训练集和测试集。三个脚本构成一条"构建 → 校验 → 划分"的流水线。
 
+## 附件
+
+- [📥 driver_metadata.csv：驱动哈希、签名与静态能力（CSV）](/driver_metadata.csv)
+- [📥 load_events.csv：驱动加载与服务状态事件（CSV）](/load_events.csv)
+- [📥 ioctl_events.csv：单次 IOCTL 遥测记录（CSV）](/ioctl_events.csv)
+- [📥 session_features.csv：会话级聚合特征（CSV）](/session_features.csv)
+
 ## 一、整体流水线
 
 ```
@@ -265,13 +272,6 @@ ALL CHECKS PASSED
 | `sensitive_caps` | 静态敏感能力类别 |
 
 长度类特征是行为画像的关键：正常调用稳定在约定长度，而试探性利用往往表现为异常大的输入或输出请求。
-
-### 附件
-
-- [📥 driver_metadata.csv：驱动哈希、签名与静态能力（CSV）](/driver_metadata.csv)
-- [📥 load_events.csv：驱动加载与服务状态事件（CSV）](/load_events.csv)
-- [📥 ioctl_events.csv：单次 IOCTL 遥测记录（CSV）](/ioctl_events.csv)
-- [📥 session_features.csv：会话级聚合特征（CSV）](/session_features.csv)
 
 ## 五、按实验会话划分训练集与测试集
 
