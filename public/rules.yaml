@@ -1,0 +1,81 @@
+# ============================================================
+# rules.yaml — 第13周规则配置
+# 所有规则的阈值 / 权重 / 告警等级都在这里调，改配置不改代码
+# 等级从低到高: none < low < medium < high < critical
+# ============================================================
+
+rules:
+  # ---------- 第9周 Normal/Review 迁移（静态规则） ----------
+  - id: W9_Normal
+    type: static_all            # 有效签名 且 路径不在非标准目录 = Normal
+    require:
+      SignatureStatus: Valid
+    require_not:                # 否定条件: 字段值不得等于指定值
+      PathCategory: NonStandard_Path
+    weight: 0                   # 正常不产生告警，仅作标签
+    level: none
+
+  - id: W9_Review
+    type: static_any            # 任一条件满足 = Review
+    require_any:
+      caps: nonstandard_path    # sensitive_caps 中含该能力
+      SignatureStatus: [Invalid, Unknown, ""]   # 签名异常/缺失
+    weight: 1
+    level: low
+
+  # ---------- 第13周新增行为规则 ----------
+  - id: R1_Install_Then_Load
+    type: install_then_load     # 服务安装后短时间内出现驱动加载
+    window_seconds: 120
+    weight: 3
+    level: high
+
+  - id: R2_Static_Combo
+    type: static_combo          # 非常规路径/签名异常/首次出现 至少两项
+    conditions:
+      nonstandard_path: true    # sensitive_caps 含 nonstandard_path
+      unsigned: true            # sensitive_caps 含 unsigned
+      first_seen: true          # load_events 中出现次数 <= 1（观测期内首次出现）
+    min_match: 2
+    weight: 2
+    level: medium
+
+  - id: R3_Ioctl_High_Rate
+    type: ioctl_rate            # IOCTL 短时间高频调用
+    window_seconds: 60
+    min_count: 30               # 窗口内调用次数下限（按第12周实测 64次/会话 校准）
+    weight: 2
+    level: medium
+
+  - id: R4_Ioctl_Variety
+    type: ioctl_variety         # 短时间内出现多种 IOCTL
+    window_seconds: 60
+    min_distinct: 3             # 窗口内不同 ioctl_code 数下限（实测数据共 3 种）
+    weight: 2
+    level: medium
+
+  - id: R5_Buffer_Abnormal
+    type: buffer_length         # 缓冲区长度超出正常范围
+    max_input_len: 1024         # 实测 in_len_max = 600
+    max_output_len: 8192        # 实测 out_len_max = 4096
+    weight: 2
+    level: medium
+
+  - id: R6_Fail_Ratio
+    type: fail_ratio            # IOCTL 失败比例超过阈值
+    threshold: 0.5
+    min_calls: 10               # 调用次数下限，避免小样本误报
+    weight: 3
+    level: high
+
+  - id: R7_Static_Dynamic
+    type: static_dynamic        # 静态敏感能力 + 动态异常行为同时出现
+    depends_on:                 # 依赖这些动态规则的结果，须最后计算
+      - R3_Ioctl_High_Rate
+      - R4_Ioctl_Variety
+      - R5_Buffer_Abnormal
+      - R6_Fail_Ratio
+    # 静态敏感能力: sensitive_caps 含以下任一（self_defined_driver 视为敏感）
+    static_caps: [nonstandard_path, unsigned, self_defined_driver]
+    weight: 4
+    level: critical
