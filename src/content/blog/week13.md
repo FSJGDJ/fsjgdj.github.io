@@ -1,5 +1,5 @@
 ---
-title: 'WEEK13'
+title: 'WEEK-13'
 description: '用 rules.yaml 承载全部检测规则与阈值，rule_engine.py 只做判定与聚合——第 9 周的 Normal/Review 迁移、7 条行为规则、时间窗口计算与 20 个测试用例。'
 pubDate: 2026-10-24
 tags: ["Windows", "驱动", "Python", "检测"]
