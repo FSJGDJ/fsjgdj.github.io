@@ -738,17 +738,22 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
     .toc-mobile {
       display: none;
     }
-    /* 正文整体右移，与左侧目录之间留出充足留白（参考 springbot 布局）。
+    /* 两栏按「目录 + 间隙 + 正文」作为整体居中，不再各算各的常数。
+       总宽 = 目录 230 + 间隙 64 + 正文 960 = 1254，半宽 627：
+         目录 left        = 50% - 627
+         正文 margin-left = 50% - 627 + 230 + 64 = 50% - 333
+       230 / 64 / 960 任一改动，下面两行必须一起重算，否则两栏会错位。
        注意：Layout 的 .container 规则带 scoped 属性选择器（优先级 0,2,0），
-       这里必须用更高优先级的选择器才能盖过它的 margin: 0 auto */
+       这里必须用更高优先级的选择器才能盖过它的 width 与 margin */
     :global(main.container.container-article) {
-      margin-left: max(300px, calc(50% - 280px));
+      width: 960px;
+      margin-left: calc(50% - 333px);
     }
     .toc-desktop {
       display: block;
       position: fixed;
       top: 5.5rem;
-      left: min(calc(50% - 675px), calc(100vw - 250px));
+      left: min(calc(50% - 627px), calc(100vw - 250px));
       width: 230px;
       max-height: calc(100vh - 8rem);
       overflow-y: auto;
