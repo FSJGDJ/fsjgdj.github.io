@@ -13,37 +13,18 @@ const post = (await getCollection("blog")).find(
 );
 if (!post) return Astro.redirect("/");
 
-const { Content, headings } = await render(post);
-
-// 目录只收 h2 / h3（depth-2 是一级章节，depth-3 是其子条目）
-const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
-
-// 按「一级章节 → 子条目」归并成两层，供目录折叠交互使用。
-// depth 信息来自构建期解析，顺序即正文顺序；孤儿 depth-3（前面没有 h2）
-// 会自成一个一级章节，不会漏掉也不会错位
-const tocTree = toc.reduce<
-  { hash: string; text: string; children: { hash: string; text: string }[] }[]
->((acc, h) => {
-  const item = { hash: `#${h.slug}`, text: h.text };
-  if (h.depth === 2 || acc.length === 0) {
-    acc.push({ ...item, children: [] });
-  } else {
-    acc[acc.length - 1].children.push(item);
-  }
-  return acc;
-}, []);
+const { Content } = await render(post);
 
 // 与首页卡片同一口径的阅读时长（正文自动统计）
 const { minutes: readingTime } = getPostStats(post.body ?? "");
 
-// 上一篇 / 下一篇：按发布时间倒序的全站序列里取相邻两篇
+// 上一篇 / 下一篇：按发布时间正序（旧 → 新），时间更早为上一篇，时间靠后为下一篇
 const all = (await getCollection("blog")).sort(
-  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+  (a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf(),
 );
 const idx = all.findIndex((p) => p.id === post.id);
-// 序列是「新 → 旧」：idx-1 更新（上一篇），idx+1 更旧（下一篇）
-const newer = idx > 0 ? all[idx - 1] : undefined;
-const older = idx >= 0 && idx < all.length - 1 ? all[idx + 1] : undefined;
+const prevPost = idx > 0 ? all[idx - 1] : undefined;
+const nextPost = idx >= 0 && idx < all.length - 1 ? all[idx + 1] : undefined;
 const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
 ---
 
@@ -60,7 +41,9 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
   </Fragment>
   <article class="post">
     <a href="/" class="back">← 返回首页</a>
-    <h1>{post.data.title}</h1>
+    <h1 transition:name={`post-title-${post.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}>
+      {post.data.title}
+    </h1>
     <div class="post-meta">
       <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
       <span class="dot">·</span>
@@ -78,48 +61,25 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
       )
     }
 
-    {
-      toc.length > 0 && (
-        <details class="toc toc-mobile">
-          <summary class="toc-title">目录</summary>
-          <ol>
-            {tocTree.map((sec) => (
-              <li class="depth-2">
-                <a href={sec.hash} aria-expanded="false">{sec.text}</a>
-                {sec.children.length > 0 && (
-                  <ol class="toc-sub" aria-hidden="true" inert>
-                    {sec.children.map((sub) => (
-                      <li class="depth-3">
-                        <a href={sub.hash}>{sub.text}</a>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </li>
-            ))}
-          </ol>
-        </details>
-      )
-    }
     <div class="content">
       <Content />
     </div>
 
     {
-      (newer || older) && (
+      (prevPost || nextPost) && (
         <nav class="post-nav" aria-label="上一篇 / 下一篇">
-          {newer ? (
-            <a class="post-nav-item prev" href={`/blog/${newer.id}/`}>
+          {prevPost ? (
+            <a class="post-nav-item prev" href={`/blog/${prevPost.id}/`}>
               <span class="post-nav-label">← 上一篇</span>
-              <span class="post-nav-title">{newer.data.title}</span>
+              <span class="post-nav-title">{prevPost.data.title}</span>
             </a>
           ) : (
             <span class="post-nav-item empty" />
           )}
-          {older ? (
-            <a class="post-nav-item next" href={`/blog/${older.id}/`}>
+          {nextPost ? (
+            <a class="post-nav-item next" href={`/blog/${nextPost.id}/`}>
               <span class="post-nav-label">下一篇 →</span>
-              <span class="post-nav-title">{older.data.title}</span>
+              <span class="post-nav-title">{nextPost.data.title}</span>
             </a>
           ) : (
             <span class="post-nav-item empty" />
@@ -132,32 +92,6 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
       <a href="/">← 返回首页</a>
     </p>
   </article>
-
-  {/* 桌面目录通过命名插槽渲染到 glass-panel 之外，
-      否则面板的 backdrop-filter 会劫持 fixed 定位（相对面板而非视口） */}
-  {toc.length > 0 && (
-    <Fragment slot="toc">
-      <aside class="toc toc-desktop" aria-label="文章目录">
-        <p class="toc-title">目录</p>
-        <ol>
-          {tocTree.map((sec) => (
-            <li class="depth-2">
-              <a href={sec.hash} aria-expanded="false">{sec.text}</a>
-              {sec.children.length > 0 && (
-                <ol class="toc-sub" aria-hidden="true" inert>
-                  {sec.children.map((sub) => (
-                    <li class="depth-3">
-                      <a href={sub.hash}>{sub.text}</a>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </li>
-          ))}
-        </ol>
-      </aside>
-    </Fragment>
-  )}
 </Layout>
 
 <script>
@@ -733,37 +667,23 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
     display: none;
   }
 
-  /* 宽屏：目录悬浮在正文左侧（第一版形态），扁平列表始终完整可见 */
-  @media (min-width: 1400px) {
+  /* 超宽屏：目录悬浮在 1350px 主容器左侧外沿，不挤占双栏正文与右侧导航 */
+  @media (min-width: 1640px) {
     .toc-mobile {
       display: none;
-    }
-    /* 两栏按「目录 + 间隙 + 正文」作为整体居中，不再各算各的常数。
-       总宽 = 目录 230 + 间隙 64 + 正文 960 = 1254，半宽 627：
-         目录 left        = 50% - 627
-         正文 margin-left = 50% - 627 + 230 + 64 = 50% - 333
-       230 / 64 / 960 任一改动，下面两行必须一起重算，否则两栏会错位。
-       注意：Layout 的 .container 规则带 scoped 属性选择器（优先级 0,2,0），
-       这里必须用更高优先级的选择器才能盖过它的 width 与 margin */
-    :global(main.container.container-article) {
-      width: 960px;
-      margin-left: calc(50% - 333px);
     }
     .toc-desktop {
       display: block;
       position: fixed;
-      top: 5.5rem;
-      left: min(calc(50% - 627px), calc(100vw - 250px));
+      top: 4.5rem;
+      left: max(1rem, calc(50% - 675px - 230px - 1rem));
       width: 230px;
-      max-height: calc(100vh - 8rem);
+      max-height: calc(100vh - 7rem);
       overflow-y: auto;
       padding: 0.9rem 1rem;
-      border-radius: 12px;
+      border-radius: 10px;
       background: var(--card);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
       border: 1px solid var(--border);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     }
     .toc-desktop .toc-title {
       margin-bottom: 0.6rem;
