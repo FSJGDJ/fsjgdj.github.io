@@ -41,9 +41,7 @@ const tagHref = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
   </Fragment>
   <article class="post">
     <a href="/" class="back">← 返回首页</a>
-    <h1 transition:name={`post-title-${post.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}>
-      {post.data.title}
-    </h1>
+    <h1>{post.data.title}</h1>
     <div class="post-meta">
       <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
       <span class="dot">·</span>

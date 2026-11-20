@@ -1,12 +1,15 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import PostFeed from "../components/PostFeed.astro";
 import { getCollection } from "astro:content";
 import { siteConfig } from "../config";
-import { getPostStats } from "../utils/postStats";
 
 const posts = (await getCollection("blog")).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
+const pageSize = siteConfig.pageSize;
+const totalPages = Math.max(1, Math.ceil(posts.length / pageSize));
+const pagePosts = posts.slice(0, pageSize);
 ---
 
 <Layout
@@ -16,12 +19,8 @@ const posts = (await getCollection("blog")).sort(
   panel={false}
   drift
 >
-  <script is:inline>
-    // 进场动画前置标记：JS 可用时才隐藏待入场元素，避免无 JS 时内容不可见
-    document.documentElement.classList.add("js");
-  </script>
   <Fragment slot="hero">
-    <section class="landing reveal">
+    <section class="landing">
       <img
         class="avatar"
         src={siteConfig.avatar}
@@ -31,9 +30,7 @@ const posts = (await getCollection("blog")).sort(
       />
       <h1>{siteConfig.name}</h1>
       <p class="subtitle">{siteConfig.tagline}</p>
-      {
-        siteConfig.motto && <p class="motto">{siteConfig.motto}</p>
-      }
+      {siteConfig.motto && <p class="motto">{siteConfig.motto}</p>}
       <div class="social">
         <a
           href="https://github.com/FSJGDJ"
@@ -93,69 +90,13 @@ const posts = (await getCollection("blog")).sort(
     </section>
   </Fragment>
 
-  <section id="posts" class="posts">
-    <div class="posts-layout">
-
-      <ul class="post-list">
-      {
-        posts.map((post, i) => {
-          const stats = getPostStats(post.body ?? "");
-          return (
-          <li
-            class="reveal"
-            style={`transition-delay:${Math.min(i, 6) * 60}ms`}
-          >
-            <a class="post-card" href={`/blog/${post.id}`}>
-              <div class="post-meta">
-                <time>{post.data.pubDate.toLocaleDateString("zh-CN")}</time>
-                <span class="dot">·</span>
-                <span>{stats.words.toLocaleString("en-US")} 字</span>
-                <span class="dot">·</span>
-                <span>{stats.minutes} 分钟</span>
-              </div>
-              <h2 transition:name={`post-title-${post.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}>
-                {post.data.title}
-              </h2>
-              <p>{post.data.description}</p>
-              <div class="post-footer">
-                {post.data.tags?.map((tag) => (
-                  <span class="tag">{tag}</span>
-                ))}
-                <span class="read-more">阅读全文 →</span>
-              </div>
-            </a>
-          </li>
-          );
-        })
-      }
-    </ul>
-    </div>
-  </section>
+  <PostFeed
+    posts={pagePosts}
+    currentPage={1}
+    totalPages={totalPages}
+    nextUrl={totalPages > 1 ? "/page/2/" : undefined}
+  />
 </Layout>
-
-<script>
-  // 进场动画：条目进入视口时上浮淡入（适配 ClientRouter 切回首页时重新绑定）
-  document.addEventListener("astro:page-load", () => {
-    const reveals = document.querySelectorAll<HTMLElement>(".reveal:not(.visible)");
-    if (reveals.length === 0) return;
-    if ("IntersectionObserver" in window) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("visible");
-              observer.unobserve(entry.target);
-            }
-          }
-        },
-        { threshold: 0.08 },
-      );
-      reveals.forEach((el) => observer.observe(el));
-    } else {
-      reveals.forEach((el) => el.classList.add("visible"));
-    }
-  });
-</script>
 
 <style>
   /* 首屏 Landing：全屏居中个人信息，滚动后进入双栏文章区 */
@@ -246,109 +187,23 @@ const posts = (await getCollection("blog")).sort(
     }
   }
 
-  /* 文章区：滚过首屏后出现，单栏展示文章列表 */
-  .posts {
-    margin-top: 0;
-    scroll-margin-top: 2rem;
+  /* 首屏首次加载轻微淡入 */
+  .landing {
+    animation: hero-fade-in 0.7s ease-out both;
   }
-  .posts-layout {
-    display: block;
-  }
-
-  .post-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    /* 卡片之间的空隙直接露出背景照片 */
-    display: grid;
-    gap: 1.6rem;
-  }
-
-  /* 每篇文章一张独立毛玻璃卡片，悬浮在照片上 */
-  .post-card {
-    display: block;
-    background: var(--card);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.6rem 1.7rem;
-    text-decoration: none;
-    color: var(--text);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    transition:
-      transform var(--dur-base) var(--ease),
-      box-shadow var(--dur-base) var(--ease),
-      border-color var(--dur-base) var(--ease);
-  }
-  .post-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15);
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  }
-  .post-card:hover h2 {
-    color: var(--accent);
-  }
-  .post-card h2 {
-    transition: color var(--dur-base) var(--ease);
-  }
-
-  .post-meta {
-    color: var(--muted);
-    font-size: 0.85rem;
-    font-family: var(--font-mono);
-  }
-  .post-meta .dot {
-    margin: 0 0.4rem;
-  }
-  .post-card h2 {
-    margin: 0.4rem 0 0.5rem;
-    font-size: 1.25rem;
-  }
-  .post-card p {
-    margin: 0 0 0.8rem;
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-
-  .post-footer {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .tag {
-    font-size: 0.75rem;
-    padding: 0.1rem 0.6rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    background: color-mix(in srgb, var(--accent) 6%, transparent);
-  }
-  .read-more {
-    margin-left: auto;
-    color: var(--accent);
-    font-size: 0.9rem;
-  }
-
-  /* 进场动画：JS 可用时先隐藏，进入视口后上浮淡入、逐条错开 */
-  :global(html.js) .reveal {
-    opacity: 0;
-    transform: translateY(26px);
-    transition:
-      opacity var(--dur-slow) var(--ease),
-      transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
-    will-change: opacity, transform;
-  }
-  :global(html.js) .reveal.visible {
-    opacity: 1;
-    transform: none;
+  @keyframes hero-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
-    :global(html.js) .reveal {
-      opacity: 1;
-      transform: none;
-      transition: none;
+    .landing {
+      animation: none;
     }
   }
 </style>

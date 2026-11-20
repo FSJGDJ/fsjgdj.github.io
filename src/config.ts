@@ -16,4 +16,6 @@ export const siteConfig = {
   avatar: "/images/avatar.jpg",
   // 邮箱：留空字符串则不在页面显示；填了会出现在 hero 区图标和页脚
   email: "fsjdg2025@163.com",
+  // 首页每页展示的文章数量
+  pageSize: 5,
 };

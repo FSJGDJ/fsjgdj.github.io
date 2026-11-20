@@ -1,0 +1,225 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getPostStats } from "../utils/postStats";
+
+interface Props {
+  posts: CollectionEntry<"blog">[];
+  currentPage: number;
+  totalPages: number;
+  prevUrl?: string;
+  nextUrl?: string;
+}
+
+const { posts, currentPage, totalPages, prevUrl, nextUrl } = Astro.props;
+
+function formatDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+---
+
+<section id="posts" class="posts">
+  <div class="post-feed">
+    {
+      posts.map((post) => {
+        const stats = getPostStats(post.body ?? "");
+        return (
+          <article class="post-item">
+            <header class="post-header">
+              <h2 class="post-title">
+                <a class="post-title-link" href={`/blog/${post.id}/`}>
+                  {post.data.title}
+                </a>
+              </h2>
+              <div class="post-meta">
+                <span class="meta-date">
+                  发布于 <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+                </span>
+                <span class="meta-stats">
+                  · {stats.words.toLocaleString("en-US")} 字 · 约 {stats.minutes} 分钟
+                </span>
+                {post.data.tags && post.data.tags.length > 0 && (
+                  <span class="meta-tags">
+                    {post.data.tags.map((tag) => (
+                      <a
+                        class="meta-tag"
+                        href={`/tags/${encodeURIComponent(tag)}/`}
+                      >
+                        # {tag}
+                      </a>
+                    ))}
+                  </span>
+                )}
+              </div>
+            </header>
+            {post.data.description && (
+              <p class="post-excerpt">{post.data.description}</p>
+            )}
+          </article>
+        );
+      })
+    }
+  </div>
+
+  {
+    totalPages > 1 && (
+      <nav class="pagination" aria-label="文章分页">
+        <div class="page-info">
+          第 {currentPage} 页 / 共 {totalPages} 页
+        </div>
+        <div class="page-links">
+          {prevUrl && (
+            <a class="page-link" href={prevUrl} title="上一页">
+              <span aria-hidden="true">«</span> 上一页
+            </a>
+          )}
+          {nextUrl && (
+            <a class="page-link" href={nextUrl} title="下一页">
+              下一页 <span aria-hidden="true">»</span>
+            </a>
+          )}
+        </div>
+      </nav>
+    )
+  }
+</section>
+
+<style>
+  .posts {
+    margin-top: 0;
+    scroll-margin-top: 2rem;
+  }
+
+  .post-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 2.85rem;
+  }
+
+  .post-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .post-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .post-title {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .post-title-link {
+    display: inline;
+    color: var(--text);
+    padding: 2px 3px;
+    margin-left: -3px;
+    text-decoration: underline;
+    text-decoration-thickness: 0.1em;
+    text-underline-offset: 4px;
+    transition:
+      background-color var(--dur-slow) var(--ease),
+      color var(--dur-slow) var(--ease);
+  }
+  .post-title-link:hover {
+    background-color: var(--text);
+    color: var(--bg);
+    text-decoration-color: var(--text);
+  }
+
+  .post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.55rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .meta-date time,
+  .meta-stats {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meta-tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+  }
+
+  .meta-tag {
+    color: var(--text);
+    padding: 1px 3px;
+    text-decoration: underline;
+    text-decoration-thickness: 0.09em;
+    text-underline-offset: 3px;
+    transition:
+      background-color var(--dur-slow) var(--ease),
+      color var(--dur-slow) var(--ease);
+  }
+  .meta-tag:hover {
+    background-color: var(--text);
+    color: var(--bg);
+    text-decoration-color: var(--text);
+  }
+
+  .post-excerpt {
+    margin: 0.8rem 0 0;
+    font-size: 0.98rem;
+    line-height: 1.8;
+    color: var(--text);
+    opacity: 0.86;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 分页区：与参考站保持一致的极简排印风格 */
+  .pagination {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .page-info {
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page-links {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .page-link {
+    color: var(--text);
+    font-size: 0.95rem;
+    padding: 2px 4px;
+    margin-left: -4px;
+    text-decoration: underline;
+    text-decoration-thickness: 0.1em;
+    text-underline-offset: 3px;
+    transition:
+      background-color var(--dur-slow) var(--ease),
+      color var(--dur-slow) var(--ease);
+  }
+  .page-link:hover {
+    background-color: var(--text);
+    color: var(--bg);
+    text-decoration-color: var(--text);
+  }
+</style>

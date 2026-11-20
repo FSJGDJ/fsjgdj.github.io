@@ -32,6 +32,7 @@ const {
 const year = new Date().getFullYear();
 const hasHero = Astro.slots.has("hero");
 const pathname = Astro.url.pathname;
+const isHome = pathname === "/" || /^\/page\/\d+\/?$/.test(pathname);
 import { ClientRouter } from "astro:transitions";
 import { siteConfig } from "../config";
 
@@ -45,7 +46,7 @@ const pageTitle =
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" transition:animate="none">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -109,11 +110,10 @@ const pageTitle =
     <div class:list={["page-shell", { "has-hero": hasHero }]}>
       <main
         class:list={["container", { "container-wide": wide, "container-article": articleWide }]}
-        transition:name="page-main"
       >
         {panel ? <div class="glass-panel"><slot /></div> : <slot />}
       </main>
-      <div class="side-rail" transition:name="side-rail" transition:animate="none">
+      <div class="side-rail">
         <header class="site-header">
           <hgroup class="brand-group">
             <a href="/" class="logo">{siteConfig.siteName}</a>
@@ -121,7 +121,7 @@ const pageTitle =
           </hgroup>
           <nav class="site-nav" aria-label="主导航">
             <ul class="nav-links">
-              <li><a href="/" class={pathname === "/" ? "active" : ""}>首页</a></li>
+              <li><a href="/" class={isHome ? "active" : ""}>首页</a></li>
               <li><a href="/archive/" class={pathname.startsWith("/archive") ? "active" : ""}>归档</a></li>
               <li>
                 <a href="https://github.com/FSJGDJ" target="_blank" rel="noopener">GitHub</a>
@@ -197,9 +197,71 @@ const pageTitle =
          需要真正相对视口悬浮的元素（如文章目录）从这里渲染 -->
     <slot name="toc" />
 
-    <!-- 全站交互初始化：适配 ClientRouter 无刷新切页生命周期 -->
+    <!-- 全站交互初始化：复刻 tsglz 顺序淡出/淡入切换 + ClientRouter 生命周期适配 -->
     <script>
       (function () {
+        const LEAVE_MS = 500;
+        const reducedMotion = () =>
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // 1. 离开当前页：先让旧 <main> 向下 1rem 淡出，与网络请求并行等待
+        document.addEventListener("astro:before-preparation", (ev) => {
+          const e = ev as Event & {
+            from: URL;
+            to: URL;
+            signal: AbortSignal;
+            loader: () => Promise<void>;
+          };
+          if (e.from.pathname === e.to.pathname && e.from.search === e.to.search) {
+            return;
+          }
+          if (reducedMotion()) return;
+
+          const originalLoader = e.loader;
+          e.loader = async () => {
+            document.documentElement.classList.add("is-leaving");
+            const waitLeave = new Promise<void>((resolve) => {
+              const timer = window.setTimeout(resolve, LEAVE_MS);
+              e.signal?.addEventListener(
+                "abort",
+                () => {
+                  window.clearTimeout(timer);
+                  document.documentElement.classList.remove("is-leaving");
+                  resolve();
+                },
+                { once: true },
+              );
+            });
+            await Promise.all([originalLoader(), waitLeave]);
+          };
+        });
+
+        // 2. 替换 DOM 前：同步暗色主题，并把新页面预置为“上方 -1rem 透明”入场态
+        document.addEventListener("astro:before-swap", (ev) => {
+          const e = ev as Event & { newDocument: Document };
+          try {
+            const t = localStorage.getItem("theme");
+            if (t === "light" || t === "dark") {
+              e.newDocument.documentElement.dataset.theme = t;
+            }
+          } catch {}
+          if (!reducedMotion()) {
+            e.newDocument.documentElement.classList.add("is-entering");
+          }
+        });
+
+        // 3. 替换 DOM 后：移除 leaving，并在下一帧释放 entering 触发平滑下滑淡入
+        document.addEventListener("astro:after-swap", () => {
+          document.documentElement.classList.remove("is-leaving");
+          if (document.documentElement.classList.contains("is-entering")) {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                document.documentElement.classList.remove("is-entering");
+              });
+            });
+          }
+        });
+
         let pageAbort: AbortController | null = null;
 
         function initPage() {
@@ -403,42 +465,38 @@ const pageTitle =
     color: var(--bg);
   }
 
-  /* 页面切换过渡动画：旧内容下移淡出，新内容从上方舒缓淡入归位 */
-  :global(::view-transition-group(*)) {
-    animation-duration: 0.5s;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  /* 禁用浏览器默认的视图快照交叉叠影，改由下方顺序过渡（仿 tsglz / Swup）完全接管 */
+  :global(::view-transition-old(root)),
+  :global(::view-transition-new(root)) {
+    animation: none;
   }
-  :global(::view-transition-old(page-main)) {
-    animation: vt-main-out 0.38s var(--ease) both;
+
+  /* 与 tsglz.vercel.app 一致的顺序切换效果：
+     先旧内容向下 1rem 淡出，再新内容从上方 -1rem 平滑落位淡入；左侧栏全程稳固不动 */
+  main.container {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 0.5s linear,
+      transform 0.5s linear;
   }
-  :global(::view-transition-new(page-main)) {
-    animation: vt-main-in 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+  :global(html.is-leaving) main.container {
+    opacity: 0;
+    transform: translateY(1rem);
   }
-  @keyframes vt-main-out {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(0.85rem);
-    }
-  }
-  @keyframes vt-main-in {
-    from {
-      opacity: 0;
-      transform: translateY(-1rem);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  :global(html.is-entering) main.container {
+    opacity: 0;
+    transform: translateY(-1rem);
+    transition: none;
   }
   @media (prefers-reduced-motion: reduce) {
-    :global(::view-transition-group(*)),
-    :global(::view-transition-old(page-main)),
-    :global(::view-transition-new(page-main)) {
-      animation: none;
+    main.container {
+      transition: none;
+    }
+    :global(html.is-leaving) main.container,
+    :global(html.is-entering) main.container {
+      opacity: 1;
+      transform: none;
     }
   }
 
